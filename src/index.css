@@ -1,11 +1,11 @@
 :root {
   /* Surfaces */
-  --bg: #0a0e16;
-  --surface: #11161f;
-  --surface-raised: #161d2b;
-  --surface-hover: #1c2536;
-  --border: #232b3d;
-  --border-soft: #1a2130;
+  --bg: #080c12;
+  --surface: #0e1420;
+  --surface-raised: #141c2a;
+  --surface-hover: #192132;
+  --border: #1f2940;
+  --border-soft: #161e2e;
 
   /* Text */
   --text-primary: #e8edf6;
@@ -13,9 +13,9 @@
   --text-tertiary: #5a6480;
 
   /* Signal accent (cyan) */
-  --accent: #2dd4f0;
-  --accent-dim: #155e6e;
-  --accent-soft: rgba(45, 212, 240, 0.12);
+  --accent: #22c7e0;
+  --accent-dim: #104e5a;
+  --accent-soft: rgba(34, 199, 224, 0.10);
 
   /* Severity semantics — used identically everywhere, never reused
      for anything that isn't a severity (heuristic #4: consistency) */
@@ -36,7 +36,7 @@
   --font-mono: 'JetBrains Mono', monospace;
 
   /* Layout */
-  --sidebar-w: 232px;
+  --sidebar-w: 220px;
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 16px;
@@ -127,22 +127,30 @@ a {
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
 }
 
 .card-pad {
-  padding: 20px 22px;
+  padding: 16px 18px;
 }
 
 .section-title {
-  font-size: 14px;
+  font-size: 12.5px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.shell-collapsed {
+  --sidebar-w: 52px;
 }
 
 .eyebrow {

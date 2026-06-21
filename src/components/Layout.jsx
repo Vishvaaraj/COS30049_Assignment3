@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import './Layout.css';
 
 const NAV_ITEMS = [
@@ -9,19 +9,35 @@ const NAV_ITEMS = [
   { to: '/visualisation', label: 'Data Visualisation', icon: ChartIcon },
 ];
 
+const PAGE_LABELS = {
+  '/': 'Dashboard',
+  '/analyse': 'Analyse Traffic',
+  '/result': 'Prediction Result',
+  '/visualisation': 'Data Visualisation',
+};
+
 export default function Layout({ children }) {
   const [navOpen, setNavOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
+  const currentPage = PAGE_LABELS[location.pathname] ?? 'Dashboard';
 
   return (
-    <div className="shell">
-      <aside className={`sidebar ${navOpen ? 'sidebar-open' : ''}`}>
+    <div className={`shell ${collapsed ? 'shell-collapsed' : ''}`}>
+      <aside className={`sidebar ${navOpen ? 'sidebar-open' : ''} ${collapsed ? 'sidebar-collapsed' : ''}`}>
+        <button
+          className="sidebar-collapse-btn"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          onClick={() => setCollapsed((v) => !v)}
+        >
+          <CollapseIcon collapsed={collapsed} />
+        </button>
+
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            <ShieldIcon />
-          </span>
-          <div>
-            <div className="brand-name">AI4Cyber</div>
-            <div className="brand-sub eyebrow">Anomaly Console</div>
+          <span className="brand-wordmark">NTA</span>
+          <div className="brand-text">
+            <div className="brand-name">NetGuard</div>
+            <div className="brand-sub eyebrow">Traffic Analysis</div>
           </div>
         </div>
 
@@ -33,16 +49,17 @@ export default function Layout({ children }) {
               end={to === '/'}
               className={({ isActive }) => `nav-item ${isActive ? 'nav-item-active' : ''}`}
               onClick={() => setNavOpen(false)}
+              title={label}
             >
               <Icon />
-              <span>{label}</span>
+              <span className="nav-label">{label}</span>
             </NavLink>
           ))}
         </nav>
 
         <div className="sidebar-footer">
-          <div className="eyebrow">Group 14 · COS30049</div>
-          <div className="sidebar-footer-models">RF · XGBoost · K-Means</div>
+          <div className="eyebrow sidebar-footer-text">Group 14 · COS30049</div>
+          <div className="sidebar-footer-models sidebar-footer-text">RF · XGBoost · K-Means</div>
         </div>
       </aside>
 
@@ -52,14 +69,16 @@ export default function Layout({ children }) {
             <MenuIcon />
           </button>
 
-          <div className="status-pulse" role="status" aria-label="Monitoring live">
-            <span className="pulse-dot">
-              <span className="pulse-ring" />
-            </span>
-            <span className="status-text">Monitoring live</span>
-          </div>
+          <span className="topbar-page-label">{currentPage}</span>
 
           <div className="topbar-right">
+            <div className="status-pulse" role="status" aria-label="Monitoring live">
+              <span className="pulse-dot">
+                <span className="pulse-ring" />
+              </span>
+              <span className="status-text">Live</span>
+            </div>
+            <span className="topbar-divider" aria-hidden="true" />
             <span className="dataset-chip eyebrow">NSL-KDD · 5-class</span>
           </div>
         </header>
@@ -120,10 +139,10 @@ function MenuIcon() {
     </svg>
   );
 }
-function ShieldIcon() {
+function CollapseIcon({ collapsed }) {
   return (
-    <svg {...iconProps({ width: 20, height: 20, stroke: 'none', fill: 'currentColor' })}>
-      <path d="M12 2l8 3.2v6.1c0 5-3.4 8.7-8 10.7-4.6-2-8-5.7-8-10.7V5.2L12 2z" />
+    <svg {...iconProps()}>
+      {collapsed ? <path d="M9 18l6-6-6-6" /> : <path d="M15 18l-6-6 6-6" />}
     </svg>
   );
 }

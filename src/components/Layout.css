@@ -14,6 +14,8 @@
   position: sticky;
   top: 0;
   height: 100vh;
+  transition: width 0.2s ease;
+  overflow: hidden;
 }
 
 .brand {
@@ -23,15 +25,16 @@
   padding: 4px 8px 22px;
 }
 
-.brand-mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  background: var(--accent-soft);
+.brand-wordmark {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
   color: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-dim);
+  border-radius: 4px;
+  padding: 4px 6px;
   flex-shrink: 0;
 }
 
@@ -44,6 +47,68 @@
 
 .brand-sub {
   margin-top: 1px;
+}
+
+.sidebar-collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0 0 18px auto;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.sidebar-collapse-btn:hover {
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  border-color: var(--text-tertiary);
+}
+
+.sidebar-collapsed {
+  width: 52px;
+  padding-left: 8px;
+  padding-right: 8px;
+  align-items: center;
+}
+
+.sidebar-collapsed .brand-text,
+.sidebar-collapsed .nav-label,
+.sidebar-collapsed .sidebar-footer-text {
+  display: none;
+}
+
+.sidebar-collapsed .brand {
+  justify-content: center;
+  padding-bottom: 16px;
+}
+
+.sidebar-collapsed .brand-wordmark {
+  margin: 0 auto;
+}
+
+.sidebar-collapsed .nav-item {
+  justify-content: center;
+  padding: 10px;
+  width: 36px;
+  border-radius: var(--radius-sm);
+}
+
+.sidebar-collapsed .sidebar-collapse-btn {
+  margin: 0 auto 18px;
+}
+
+.sidebar-collapsed .sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
 }
 
 .nav {
@@ -72,8 +137,17 @@
 }
 
 .nav-item-active {
-  background: var(--accent-soft);
+  background: rgba(34, 199, 224, 0.08);
   color: var(--accent);
+  border-left: 2px solid var(--accent);
+  padding-left: 10px;
+}
+
+.sidebar-collapsed .nav-item-active {
+  border-left: none;
+  border-bottom: 2px solid var(--accent);
+  padding-left: 10px;
+  padding-bottom: 8px;
 }
 
 .nav-item-active svg {
@@ -100,18 +174,33 @@
 }
 
 .topbar {
-  height: 60px;
+  height: 48px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 0 24px;
+  padding: 0 20px;
   border-bottom: 1px solid var(--border);
-  background: rgba(10, 14, 22, 0.7);
-  backdrop-filter: blur(6px);
+  background: var(--surface);
+  backdrop-filter: none;
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+.topbar-page-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+.topbar-divider {
+  display: inline-block;
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 4px;
 }
 
 .nav-toggle {
@@ -123,9 +212,6 @@
   padding: 4px;
 }
 
-/* ---- signature element: the live monitoring pulse ----
-   A single radar-style ping. Used nowhere else in the app so it stays
-   meaningful as "the system is actively watching traffic right now". */
 .status-pulse {
   display: flex;
   align-items: center;
@@ -172,6 +258,9 @@
 
 .topbar-right {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .dataset-chip {
@@ -201,6 +290,24 @@
   }
   .sidebar-open {
     left: 0;
+  }
+  .sidebar-collapse-btn {
+    display: none;
+  }
+  .sidebar-collapsed {
+    width: 232px;
+    padding: 20px 16px;
+    align-items: flex-start;
+  }
+  .sidebar-collapsed .brand-text,
+  .sidebar-collapsed .nav-label,
+  .sidebar-collapsed .sidebar-footer-text {
+    display: block;
+  }
+  .sidebar-collapsed .nav-item {
+    justify-content: flex-start;
+    padding: 10px 12px;
+    width: auto;
   }
   .nav-toggle {
     display: inline-flex;
