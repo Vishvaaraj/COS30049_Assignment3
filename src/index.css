@@ -1,0 +1,218 @@
+/* =========================================================
+   AI4Cyber Design Tokens
+   Direction: industrial dark-mode SOC console — deep navy
+   surfaces, cyan signal accent, monospace for anything that
+   is a measurement (per A1 usability heuristic #4: consistent
+   numeric formatting). Signature element: the live pulse
+   indicator in the topbar (radar-style ping), reused nowhere
+   else, so it stays meaningful instead of decorative.
+   ========================================================= */
+
+:root {
+  /* Surfaces */
+  --bg: #0a0e16;
+  --surface: #11161f;
+  --surface-raised: #161d2b;
+  --surface-hover: #1c2536;
+  --border: #232b3d;
+  --border-soft: #1a2130;
+
+  /* Text */
+  --text-primary: #e8edf6;
+  --text-secondary: #8b96ac;
+  --text-tertiary: #5a6480;
+
+  /* Signal accent (cyan) */
+  --accent: #2dd4f0;
+  --accent-dim: #155e6e;
+  --accent-soft: rgba(45, 212, 240, 0.12);
+
+  /* Severity semantics — used identically everywhere, never reused
+     for anything that isn't a severity (heuristic #4: consistency) */
+  --critical: #f4495f;
+  --critical-soft: rgba(244, 73, 95, 0.14);
+  --high: #fb923c;
+  --high-soft: rgba(251, 146, 60, 0.14);
+  --medium: #f3c344;
+  --medium-soft: rgba(243, 195, 68, 0.14);
+  --low: #4ea8de;
+  --low-soft: rgba(78, 168, 222, 0.14);
+  --normal: #34d399;
+  --normal-soft: rgba(52, 211, 153, 0.14);
+
+  /* Type */
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Layout */
+  --sidebar-w: 232px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font-family: var(--font-body);
+}
+
+a {
+  color: inherit;
+}
+
+/* Numeric / measurement values use the mono face everywhere,
+   per the A1 consistency heuristic. Apply via this utility class. */
+.num {
+  font-family: var(--font-mono);
+  font-feature-settings: 'tnum';
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* Respect reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Visible keyboard focus ring, kept consistent across all interactive
+   elements rather than relying on browser default outlines. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Shared card primitive used across all four pages */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.card-pad {
+  padding: 20px 22px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.btn {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  padding: 9px 16px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--text-tertiary);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #04181c;
+}
+
+.btn-primary:hover {
+  background: #4fe0f7;
+  border-color: #4fe0f7;
+}
+
+.btn-danger-outline {
+  border-color: var(--critical);
+  color: var(--critical);
+  background: transparent;
+}
+
+.btn-danger-outline:hover {
+  background: var(--critical-soft);
+}
+
+/* Responsive breakpoints used consistently across pages */
+@media (max-width: 1024px) {
+  :root {
+    --sidebar-w: 0px;
+  }
+}
