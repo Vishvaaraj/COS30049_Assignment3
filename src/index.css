@@ -1,39 +1,48 @@
 :root {
-  /* Surfaces */
-  --bg: #080c12;
-  --surface: #0e1420;
-  --surface-raised: #141c2a;
-  --surface-hover: #192132;
-  --border: #1f2940;
-  --border-soft: #161e2e;
+  /* Surfaces — NOC/SOC monitoring wall palette */
+  --bg-ink: #0A0D10;
+  --bg-surface: #121821;
+  --bg-surface-raised: #1A222C;
+  --border: #232C36;
+
+  /* Legacy aliases used across existing CSS */
+  --bg: var(--bg-ink);
+  --surface: var(--bg-surface);
+  --surface-raised: var(--bg-surface-raised);
+  --surface-hover: #1f2834;
+  --border-soft: #1a222c;
 
   /* Text */
-  --text-primary: #e8edf6;
-  --text-secondary: #8b96ac;
-  --text-tertiary: #5a6480;
+  --text-primary: #E7EDF2;
+  --text-muted: #8694A1;
+  --text-secondary: var(--text-muted);
+  --text-tertiary: #5a6672;
 
-  /* Signal accent (cyan) */
-  --accent: #22c7e0;
-  --accent-dim: #104e5a;
-  --accent-soft: rgba(34, 199, 224, 0.10);
+  /* Accents — warm beacon primary, teal sonar secondary */
+  --accent-beacon: #E8A33D;
+  --accent-sonar: #2BA39A;
+  --accent: var(--accent-beacon);
+  --accent-dim: #6b4f1a;
+  --accent-soft: rgba(232, 163, 61, 0.12);
+  --accent-secondary: var(--accent-sonar);
+  --accent-secondary-soft: rgba(43, 163, 154, 0.12);
 
-  /* Severity semantics — used identically everywhere, never reused
-     for anything that isn't a severity (heuristic #4: consistency) */
-  --critical: #f4495f;
-  --critical-soft: rgba(244, 73, 95, 0.14);
-  --high: #fb923c;
-  --high-soft: rgba(251, 146, 60, 0.14);
-  --medium: #f3c344;
-  --medium-soft: rgba(243, 195, 68, 0.14);
-  --low: #4ea8de;
-  --low-soft: rgba(78, 168, 222, 0.14);
-  --normal: #34d399;
-  --normal-soft: rgba(52, 211, 153, 0.14);
+  /* Severity semantics */
+  --critical: #F2495E;
+  --critical-soft: rgba(242, 73, 94, 0.14);
+  --high: #F2914A;
+  --high-soft: rgba(242, 145, 74, 0.14);
+  --medium: #ECC54A;
+  --medium-soft: rgba(236, 197, 74, 0.14);
+  --low: #5C8AA6;
+  --low-soft: rgba(92, 138, 166, 0.14);
+  --normal: var(--accent-sonar);
+  --normal-soft: rgba(43, 163, 154, 0.14);
 
   /* Type */
-  --font-display: 'Space Grotesk', sans-serif;
-  --font-body: 'Inter', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'IBM Plex Sans', sans-serif;
+  --font-body: 'IBM Plex Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
 
   /* Layout */
   --sidebar-w: 220px;
@@ -51,7 +60,7 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
+  background: var(--bg-ink);
   color: var(--text-primary);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -83,10 +92,9 @@ a {
   color: inherit;
 }
 
-/* Numeric / measurement values use the mono face everywhere,
-   per the A1 consistency heuristic. Apply via this utility class. */
 .num {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
 }
 
@@ -105,7 +113,6 @@ a {
   background: var(--text-tertiary);
 }
 
-/* Respect reduced-motion preference */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -115,17 +122,14 @@ a {
   }
 }
 
-/* Visible keyboard focus ring, kept consistent across all interactive
-   elements rather than relying on browser default outlines. */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-beacon);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-/* Shared card primitive used across all four pages */
 .card {
-  background: var(--surface);
+  background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
@@ -138,7 +142,7 @@ a {
 .section-title {
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   display: flex;
@@ -168,7 +172,7 @@ a {
   border-radius: var(--radius-sm);
   padding: 9px 16px;
   border: 1px solid var(--border);
-  background: var(--surface-raised);
+  background: var(--bg-surface-raised);
   color: var(--text-primary);
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
@@ -188,14 +192,24 @@ a {
 }
 
 .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #04181c;
+  background: var(--accent-beacon);
+  border-color: var(--accent-beacon);
+  color: #1a1206;
 }
 
 .btn-primary:hover {
-  background: #4fe0f7;
-  border-color: #4fe0f7;
+  background: #f0b55a;
+  border-color: #f0b55a;
+}
+
+.btn-secondary {
+  background: transparent;
+  border-color: var(--accent-sonar);
+  color: var(--accent-sonar);
+}
+
+.btn-secondary:hover {
+  background: var(--accent-secondary-soft);
 }
 
 .btn-danger-outline {
@@ -208,7 +222,6 @@ a {
   background: var(--critical-soft);
 }
 
-/* Responsive breakpoints used consistently across pages */
 @media (max-width: 1024px) {
   :root {
     --sidebar-w: 0px;

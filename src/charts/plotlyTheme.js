@@ -1,35 +1,31 @@
-// Central place for Plotly theming so every chart on every page looks like
-// it belongs to the same console rather than fighting Plotly's white
-// default per-instance.
-
 export function plotlyDarkLayout(overrides = {}) {
   return {
     paper_bgcolor: 'transparent',
     plot_bgcolor: 'transparent',
     font: {
-      family: 'Inter, sans-serif',
-      color: '#8b96ac',
+      family: 'IBM Plex Sans, sans-serif',
+      color: '#8694A1',
       size: 12,
     },
     margin: { t: 20, r: 20, b: 40, l: 50 },
     xaxis: {
-      gridcolor: '#1c2536',
-      zerolinecolor: '#232b3d',
-      color: '#8b96ac',
+      gridcolor: '#232C36',
+      zerolinecolor: '#232C36',
+      color: '#8694A1',
     },
     yaxis: {
-      gridcolor: '#1c2536',
-      zerolinecolor: '#232b3d',
-      color: '#8b96ac',
+      gridcolor: '#232C36',
+      zerolinecolor: '#232C36',
+      color: '#8694A1',
     },
     legend: {
       bgcolor: 'transparent',
-      font: { color: '#8b96ac' },
+      font: { color: '#8694A1' },
     },
     hoverlabel: {
-      bgcolor: '#161d2b',
-      bordercolor: '#232b3d',
-      font: { color: '#e8edf6', family: 'JetBrains Mono, monospace', size: 12 },
+      bgcolor: '#1A222C',
+      bordercolor: '#232C36',
+      font: { color: '#E7EDF2', family: 'IBM Plex Mono, monospace', size: 12 },
     },
     ...overrides,
   };
@@ -43,9 +39,12 @@ export const plotlyConfig = {
 };
 
 export const SEVERITY_COLOR = {
-  Normal: '#34d399',
-  DoS: '#f4495f',
-  Probe: '#f3c344',
-  R2L: '#fb923c',
-  U2R: '#a855f7',
+  Normal: '#2BA39A',
+  DoS: '#F2495E',
+  Probe: '#ECC54A',
+  R2L: '#F2914A',
+  U2R: '#F2495E',
 };
+
+export const ACCENT_BEACON = '#E8A33D';
+export const ACCENT_SONAR = '#2BA39A';

@@ -3,13 +3,15 @@
 // srv_count, serror_rate). Centralised here so the same rules can be
 // reused if a second form ever needs them.
 
+import { SERVICE_OPTIONS } from './serviceOptions';
+
 export const PROTOCOL_OPTIONS = ['tcp', 'udp', 'icmp'];
-export const FLAG_OPTIONS = ['SF', 'S0', 'S1', 'S2', 'S3', 'REJ', 'RSTR', 'RSTO', 'SH', 'OTH'];
+export const FLAG_OPTIONS = ['SF', 'S0', 'S1', 'S2', 'S3', 'REJ', 'RSTR', 'RSTO', 'RSTOS0', 'SH', 'OTH'];
 
 export const FEATURE_SPECS = [
   { key: 'duration', label: 'Duration', unit: 'sec', type: 'number', min: 0, max: 100000 },
   { key: 'protocol_type', label: 'Protocol type', type: 'select', options: PROTOCOL_OPTIONS },
-  { key: 'service', label: 'Service', type: 'text', placeholder: 'e.g. http, ftp_data, private' },
+  { key: 'service', label: 'Service', type: 'select', options: SERVICE_OPTIONS },
   { key: 'flag', label: 'Flag', type: 'select', options: FLAG_OPTIONS },
   { key: 'src_bytes', label: 'Source bytes', unit: 'bytes', type: 'number', min: 0, max: 10000000 },
   { key: 'dst_bytes', label: 'Destination bytes', unit: 'bytes', type: 'number', min: 0, max: 10000000 },

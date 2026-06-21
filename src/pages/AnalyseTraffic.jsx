@@ -1,10 +1,12 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
-import { submitPrediction, fetchModelStats } from '../api/client';
+import { submitPrediction, fetchModelStats, fetchRandomSampleRow } from '../api/client';
 import { usePrediction } from '../state/PredictionContext.jsx';
 import { FEATURE_SPECS, emptyFeatureState, validateFeatures, featuresToCsvFile } from '../data/featureSpecs';
+import { FEATURE_GLOSSARY } from '../data/featureGlossary';
 import { ErrorBanner } from '../components/Feedback.jsx';
+import SyntheticDataPanel from '../components/SyntheticDataPanel.jsx';
 import './AnalyseTraffic.css';
 
 const AVAILABLE_MODELS = [
@@ -13,17 +15,24 @@ const AVAILABLE_MODELS = [
   { id: 'kmeans', label: 'K-Means' },
 ];
 
+function topPredictedClass(classCounts) {
+  if (!classCounts) return '—';
+  return Object.entries(classCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—';
+}
+
 export default function AnalyseTraffic() {
   const navigate = useNavigate();
-  const { setResult, setFileName } = usePrediction();
+  const { setResult, setFileName, recordRun, recentRuns } = usePrediction();
 
-  const [mode, setMode] = useState('upload'); // 'upload' | 'manual'
+  const [mode, setMode] = useState('upload');
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState(null);
-  const [fileSummary, setFileSummary] = useState(null); // { rows: number, cols: number }
+  const [fileSummary, setFileSummary] = useState(null);
 
   const [featureValues, setFeatureValues] = useState(emptyFeatureState());
   const [touched, setTouched] = useState({});
+  const [fillingSample, setFillingSample] = useState(false);
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
 
   const [model, setModel] = useState('random_forest');
   const [modelStats, setModelStats] = useState({});
@@ -57,16 +66,8 @@ export default function AnalyseTraffic() {
   const errors = useMemo(() => validateFeatures(featureValues), [featureValues]);
   const manualValid = mode === 'manual' && Object.keys(errors).length === 0;
 
-  const onDrop = useCallback((accepted, rejected) => {
+  const loadFileIntoUploader = useCallback((f) => {
     setFileError(null);
-    setFileSummary(null);
-    if (rejected && rejected.length > 0) {
-      setFileError('Only .csv or .json files are accepted.');
-      return;
-    }
-    const f = accepted[0];
-    if (!f) return;
-
     f.text()
       .then((text) => {
         const lines = text.trim().split('\n');
@@ -76,12 +77,25 @@ export default function AnalyseTraffic() {
         setFileSummary({ rows, cols });
         f.estimatedRows = rows > 0 ? rows : 1;
       })
-      .catch(() => {
-        setFileError('Could not read the file contents.');
-      });
-
+      .catch(() => setFileError('Could not read the file contents.'));
     setFile(f);
+    setMode('upload');
   }, []);
+
+  const onDrop = useCallback(
+    (accepted, rejected) => {
+      setFileError(null);
+      setFileSummary(null);
+      if (rejected && rejected.length > 0) {
+        setFileError('Only .csv or .json files are accepted.');
+        return;
+      }
+      const f = accepted[0];
+      if (!f) return;
+      loadFileIntoUploader(f);
+    },
+    [loadFileIntoUploader]
+  );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -98,6 +112,24 @@ export default function AnalyseTraffic() {
     setTouched((prev) => ({ ...prev, [key]: true }));
   }
 
+  async function handleFillRandomSample() {
+    setFillingSample(true);
+    try {
+      const row = await fetchRandomSampleRow();
+      setFeatureValues(
+        FEATURE_SPECS.reduce((acc, f) => {
+          acc[f.key] = row[f.key] ?? '';
+          return acc;
+        }, {})
+      );
+      setTouched({});
+    } catch (e) {
+      setSubmitError(e.message || 'Could not load a sample row.');
+    } finally {
+      setFillingSample(false);
+    }
+  }
+
   const canSubmit = mode === 'upload' ? !!file && !fileError : manualValid;
 
   async function handleSubmit() {
@@ -107,7 +139,15 @@ export default function AnalyseTraffic() {
       const payloadFile = mode === 'upload' ? file : featuresToCsvFile(featureValues);
       const data = await submitPrediction(payloadFile, model);
       setResult(data);
-      setFileName(mode === 'upload' ? file.name : 'Manual entry');
+      const name = mode === 'upload' ? file.name : 'Manual entry';
+      setFileName(name);
+      recordRun({
+        timestamp: new Date().toISOString(),
+        model: data.summary.model_used,
+        rowCount: data.summary.total_rows,
+        topClass: topPredictedClass(data.summary.class_counts),
+        fileName: name,
+      });
       navigate('/result');
     } catch (e) {
       setSubmitError(e.message || 'Classification failed. Please try again.');
@@ -126,12 +166,11 @@ export default function AnalyseTraffic() {
   }
 
   function handleResetClick() {
-    const hasData = (mode === 'upload' && file !== null) || (mode === 'manual' && Object.values(featureValues).some(v => v !== ''));
-    if (hasData) {
-      setShowResetModal(true);
-    } else {
-      resetFields();
-    }
+    const hasData =
+      (mode === 'upload' && file !== null) ||
+      (mode === 'manual' && Object.values(featureValues).some((v) => v !== ''));
+    if (hasData) setShowResetModal(true);
+    else resetFields();
   }
 
   function confirmReset() {
@@ -198,77 +237,129 @@ export default function AnalyseTraffic() {
               {fileError && <div className="field-error" style={{ marginTop: 10 }}>{fileError}</div>}
             </div>
           ) : (
-            <div className="feature-grid">
-              {FEATURE_SPECS.map((f) => {
-                const showError = touched[f.key] && errors[f.key];
-                return (
-                  <div className="feature-field" key={f.key}>
-                    <label htmlFor={f.key}>
-                      {f.label}
-                      {f.unit && <span className="feature-unit"> ({f.unit})</span>}
-                    </label>
-                    {f.type === 'select' ? (
-                      <select
-                        id={f.key}
-                        value={featureValues[f.key]}
-                        onChange={(e) => handleFeatureChange(f.key, e.target.value)}
-                        onBlur={() => handleBlur(f.key)}
-                        className={showError ? 'input-error' : ''}
-                      >
-                        <option value="" disabled>
-                          Select…
-                        </option>
-                        {f.options.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
+            <>
+              <div className="manual-toolbar">
+                <button className="btn btn-secondary" type="button" onClick={handleFillRandomSample} disabled={fillingSample}>
+                  {fillingSample ? 'Loading sample…' : 'Fill with random real sample'}
+                </button>
+              </div>
+              <div className="feature-grid">
+                {FEATURE_SPECS.map((f) => {
+                  const showError = touched[f.key] && errors[f.key];
+                  return (
+                    <div className="feature-field" key={f.key}>
+                      <label htmlFor={f.key}>
+                        {f.label}
+                        {f.unit && <span className="feature-unit"> ({f.unit})</span>}
+                      </label>
+                      {f.type === 'select' ? (
+                        <select
+                          id={f.key}
+                          value={featureValues[f.key]}
+                          onChange={(e) => handleFeatureChange(f.key, e.target.value)}
+                          onBlur={() => handleBlur(f.key)}
+                          className={showError ? 'input-error' : ''}
+                        >
+                          <option value="" disabled>
+                            Select…
                           </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        id={f.key}
-                        type={f.type === 'number' ? 'number' : 'text'}
-                        step={f.step}
-                        placeholder={f.placeholder}
-                        value={featureValues[f.key]}
-                        onChange={(e) => handleFeatureChange(f.key, e.target.value)}
-                        onBlur={() => handleBlur(f.key)}
-                        className={showError ? 'input-error' : ''}
-                      />
-                    )}
-                    {showError && <div className="field-error">{errors[f.key]}</div>}
+                          {f.options.map((opt) => (
+                            <option key={opt} value={opt}>
+                              {opt}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          id={f.key}
+                          type={f.type === 'number' ? 'number' : 'text'}
+                          step={f.step}
+                          placeholder={f.placeholder}
+                          value={featureValues[f.key]}
+                          onChange={(e) => handleFeatureChange(f.key, e.target.value)}
+                          onBlur={() => handleBlur(f.key)}
+                          className={showError ? 'input-error' : ''}
+                        />
+                      )}
+                      {showError && <div className="field-error">{errors[f.key]}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          <div className="glossary-strip">
+            <button
+              type="button"
+              className="glossary-toggle"
+              onClick={() => setGlossaryOpen((v) => !v)}
+              aria-expanded={glossaryOpen}
+            >
+              {glossaryOpen ? '▾' : '▸'} Feature glossary — what do these 9 fields mean?
+            </button>
+            {glossaryOpen && (
+              <dl className="glossary-list">
+                {FEATURE_GLOSSARY.map((item) => (
+                  <div className="glossary-item" key={item.key}>
+                    <dt>{item.label}</dt>
+                    <dd>{item.summary}</dd>
                   </div>
+                ))}
+              </dl>
+            )}
+          </div>
+        </div>
+
+        <div className="analyse-side-col">
+          <div className="card card-pad">
+            <div className="section-title">
+              <span>Select model</span>
+              <span className="eyebrow">Live accuracy from backend</span>
+            </div>
+            <div className="model-grid">
+              {AVAILABLE_MODELS.map((m) => {
+                const stats = modelStats[m.id];
+                const accuracy = loadingStats ? 'Loading…' : stats ? `${(stats.accuracy * 100).toFixed(2)}%` : 'N/A';
+                return (
+                  <button
+                    key={m.id}
+                    className={`model-card ${model === m.id ? 'model-card-active' : ''}`}
+                    onClick={() => setModel(m.id)}
+                    type="button"
+                    disabled={loadingStats}
+                  >
+                    <div className="model-name">{m.label}</div>
+                    <div className="model-accuracy num">{accuracy}</div>
+                    <div className="eyebrow">accuracy</div>
+                  </button>
                 );
               })}
             </div>
+          </div>
+
+          {recentRuns.length > 0 && (
+            <div className="card card-pad recent-runs">
+              <div className="section-title">
+                <span>Recent test runs</span>
+              </div>
+              <ul className="recent-runs-list">
+                {recentRuns.map((run) => (
+                  <li key={run.timestamp + run.fileName}>
+                    <span className="num recent-run-time">{new Date(run.timestamp).toLocaleString()}</span>
+                    <span className="recent-run-detail">
+                      {run.fileName} · {run.rowCount} rows · {run.model.replace('_', ' ')} · top: {run.topClass}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
+      </div>
 
-        <div className="card card-pad">
-          <div className="section-title">
-            <span>Select model</span>
-            <span className="eyebrow">Live accuracy from backend</span>
-          </div>
-          <div className="model-grid">
-            {AVAILABLE_MODELS.map((m) => {
-              const stats = modelStats[m.id];
-              const accuracy = loadingStats ? 'Loading…' : stats ? `${(stats.accuracy * 100).toFixed(2)}%` : 'N/A';
-              return (
-                <button
-                  key={m.id}
-                  className={`model-card ${model === m.id ? 'model-card-active' : ''}`}
-                  onClick={() => setModel(m.id)}
-                  type="button"
-                  disabled={loadingStats}
-                >
-                  <div className="model-name">{m.label}</div>
-                  <div className="model-accuracy num">{accuracy}</div>
-                  <div className="eyebrow">accuracy</div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+      <div className="analyse-bottom-grid">
+        <SyntheticDataPanel onLoadFile={loadFileIntoUploader} />
       </div>
 
       {submitError && (

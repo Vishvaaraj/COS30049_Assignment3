@@ -65,7 +65,7 @@
   height: 14px;
   border-radius: 50%;
   border: 2px solid var(--border);
-  border-top-color: var(--accent);
+  border-top-color: var(--accent-beacon);
   animation: spin 0.7s linear infinite;
   flex-shrink: 0;
 }
@@ -118,5 +118,10 @@
 .sort-arrow {
   font-size: 10px;
   margin-left: 4px;
-  color: var(--accent);
+  color: var(--accent-beacon);
+}
+
+.stat-sparkline {
+  margin-top: 6px;
+  opacity: 0.9;
 }

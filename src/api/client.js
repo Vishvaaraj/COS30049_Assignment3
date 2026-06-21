@@ -1,15 +1,14 @@
 import axios from 'axios';
+import { FEATURES } from '../data/constants.js';
 import {
   mockAlerts,
   mockDatasetStats,
   mockModelStats,
   generateMockPredictionResults,
+  generateMockSyntheticCsv,
+  generateMockSyntheticRow,
 } from '../data/mockData';
 
-// VITE_API_BASE_URL: set in .env once Nigel's FastAPI server has a URL
-// (local: http://localhost:8000, deployed: Render/Railway URL).
-// VITE_USE_MOCK: "true" while the backend isn't ready yet. Flip to "false"
-// to hit the real API. See .env.example.
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
 
@@ -18,8 +17,6 @@ const http = axios.create({
   timeout: 30000,
 });
 
-// Normalises any failure (network error, 4xx, 5xx) into one shape so every
-// page can render the same kind of error banner instead of guessing.
 function toApiError(error) {
   if (error.response) {
     return {
@@ -76,13 +73,11 @@ export async function fetchAlerts(limit = 10) {
   }
 }
 
-// file: a File object (.csv) from the drag-and-drop zone or manual-entry blob
-// model: which classifier to run inference with
 export async function submitPrediction(file, model = 'random_forest') {
   if (USE_MOCK) {
     await delay(900);
     const rowCount = Math.max(1, Math.min(50, file?.estimatedRows || 12));
-    return generateMockPredictionResults(rowCount);
+    return generateMockPredictionResults(rowCount, model);
   }
   try {
     const formData = new FormData();
@@ -95,4 +90,53 @@ export async function submitPrediction(file, model = 'random_forest') {
   } catch (e) {
     throw toApiError(e);
   }
+}
+
+export async function fetchSyntheticData({ count = 25, mix = 'realistic', jitter = 0.08 } = {}) {
+  if (USE_MOCK) {
+    await delay(400);
+    return generateMockSyntheticCsv(count, mix, jitter);
+  }
+  try {
+    const { data } = await http.get('/synthetic-data', {
+      params: { count, mix, jitter },
+      responseType: 'text',
+    });
+    return data;
+  } catch (e) {
+    throw toApiError(e);
+  }
+}
+
+export async function fetchRandomSampleRow({ mix = 'realistic', jitter = 0.08 } = {}) {
+  if (USE_MOCK) {
+    await delay(200);
+    return generateMockSyntheticRow(mix, jitter);
+  }
+  const csv = await fetchSyntheticData({ count: 1, mix, jitter });
+  const line = csv.trim().split('\n')[1];
+  const values = line.split(',');
+  return FEATURES.reduce((acc, f, i) => {
+    acc[f] = values[i];
+    return acc;
+  }, {});
+}
+
+export function syntheticCsvToFile(csvText, filename = 'synthetic-traffic.csv') {
+  const blob = new Blob([csvText], { type: 'text/csv' });
+  const file = new File([blob], filename, { type: 'text/csv' });
+  const lines = csvText.trim().split('\n');
+  file.estimatedRows = Math.max(1, lines.length - 1);
+  return file;
+}
+
+export async function downloadSyntheticCsv(params) {
+  const csv = await fetchSyntheticData(params);
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `synthetic-${params.mix || 'realistic'}-${params.count || 25}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }

@@ -1,3 +1,56 @@
+.page-header {
+  margin-bottom: 22px;
+}
+.page-header h2 {
+  font-size: 22px;
+}
+.page-sub {
+  color: var(--text-muted);
+  font-size: 13.5px;
+  margin-top: 4px;
+}
+
+.macro-scoreboard {
+  margin-bottom: 18px;
+}
+.macro-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 800px) {
+  .macro-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.macro-item {
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.macro-model-name {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.macro-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (max-width: 520px) {
+  .macro-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.macro-val {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
 .viz-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
@@ -21,7 +74,7 @@
   align-items: center;
   gap: 8px;
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-beacon);
   font-size: 12px;
   font-weight: 600;
   padding: 4px 10px;
@@ -31,7 +84,7 @@
 .filter-chip button {
   background: none;
   border: none;
-  color: var(--accent);
+  color: var(--accent-beacon);
   font-size: 14px;
   cursor: pointer;
   padding: 0;
@@ -39,9 +92,10 @@
   line-height: 1;
 }
 
-.corr-toggle {
+.corr-toggle,
+.metric-toggle {
   display: inline-flex;
-  background: var(--surface-raised);
+  background: var(--bg-surface-raised);
   border-radius: var(--radius-sm);
   padding: 4px;
   border: 1px solid var(--border);
@@ -49,7 +103,7 @@
 .mini-toggle {
   background: none;
   border: none;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   font-size: 12px;
   font-weight: 600;
   padding: 5px 12px;
@@ -57,21 +111,29 @@
   cursor: pointer;
 }
 .mini-toggle-active {
-  background: var(--surface);
+  background: var(--bg-surface);
   color: var(--text-primary);
 }
 
 .filter-controls {
   display: flex;
   gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .filter-controls select {
-  background: var(--surface-raised);
+  background: var(--bg-surface-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-family: var(--font-body);
   font-size: 13px;
   padding: 6px 10px;
+}
+
+.distribution-hint p {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
 }
