@@ -1,13 +1,3 @@
-/* =========================================================
-   AI4Cyber Design Tokens
-   Direction: industrial dark-mode SOC console — deep navy
-   surfaces, cyan signal accent, monospace for anything that
-   is a measurement (per A1 usability heuristic #4: consistent
-   numeric formatting). Signature element: the live pulse
-   indicator in the topbar (radar-style ping), reused nowhere
-   else, so it stays meaningful instead of decorative.
-   ========================================================= */
-
 :root {
   /* Surfaces */
   --bg: #0a0e16;

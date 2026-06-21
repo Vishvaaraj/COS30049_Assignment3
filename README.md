@@ -1,74 +1,33 @@
-# AI4Cyber — Front-End (React + Vite)
+---
+title: AI4Cyber Anomaly Detection API
+emoji: 🛡️
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+---
 
-Network Traffic Classification for Anomaly Detection — Assignment 3 front-end.
-Group 14.
+# AI4Cyber Anomaly Detection API
 
-## Stack
+This Hugging Face Space hosts the FastAPI backend for the COS30049 Assignment 3 project by Group 14.
 
-- React 18 + Vite
-- React Router (4 pages: Dashboard, Analyse Traffic, Prediction Result, Data Visualisation)
-- Plotly.js (`react-plotly.js`) for all charts
-- Axios for API calls
-- react-dropzone for the file upload zone
+## Overview
 
-## Setup
+This backend serves three pre-trained machine learning models (Random Forest, XGBoost, K-Means) to detect network intrusions. It provides a "live" experience by running real inference, persisting prediction history to a Supabase database, and serving statistics based on the actual trained artifacts.
 
-```bash
-npm install
-cp .env.example .env
-npm run dev
-```
+### What "Live" Means
 
-The app runs at `http://localhost:5173`.
+- **Real Inference**: The `/predict` endpoint runs inference on the actual `scikit-learn` and `xgboost` models.
+- **Persisted Alerts**: Every prediction that is not "Normal" is logged as an alert to a Supabase Postgres database. The `GET /alerts` endpoint reads directly from this table.
+- **Real Stats**: The `/dataset-stats` and `/model-stats` endpoints return data derived from the real training dataset and model evaluation metrics from Assignment 2.
 
-## Connecting to the backend
+This backend does **not** perform live network packet capture.
 
-This project ships with **mock data** so it runs and demos fully before the
-FastAPI backend exists. Controlled by `.env`:
+## Environment Variables (Secrets)
 
-```
-VITE_API_BASE_URL=http://localhost:8000   # FastAPI server URL
-VITE_USE_MOCK=true                        # true = mock data, false = real API
-```
+To connect to the Supabase database, you must set the following secrets in your Hugging Face Space settings:
 
-Once the backend implements the 4 endpoints below, set `VITE_USE_MOCK=false`
-and point `VITE_API_BASE_URL` at the running server (local or the deployed
-Render/Railway URL).
+- `SUPABASE_URL`: The URL of your Supabase project.
+- `SUPABASE_SERVICE_KEY`: The `service_role` key for your Supabase project.
 
-## API contract (agreed with backend)
-
-| Purpose | Method + path | Request | Response |
-|---|---|---|---|
-| Classify a CSV — one result per row | `POST /predict` | multipart form: `file` (.csv), `model` | `{ rows: [{ row_id, predicted_class, confidence, probabilities, model_used, inference_time_ms }], summary: { total_rows, class_counts, model_used } }` |
-| Model accuracy / F1 / feature importance | `GET /model-stats?model=random_forest` | query param `model` | `{ accuracy, macro_f1, per_class: { ClassName: { precision, recall, f1, support } }, feature_importance: { feature: score } }` |
-| Dataset class distribution | `GET /dataset-stats` | none | `{ total_records, class_distribution: { ClassName: count } }` |
-| Recent alerts | `GET /alerts?limit=10` | query param `limit` | `[{ id, class, severity, confidence, source_ip, timestamp }]` |
-
-Error responses are expected as `{ "detail": "message" }` (FastAPI's default
-shape) — the front-end's `src/api/client.js` reads `error.response.data.detail`
-for display.
-
-## Project structure
-
-```
-src/
-  api/client.js         — all backend calls + mock fallback
-  data/                  — mock data, feature validation specs, static
-                           A2 correlation/response-playbook data
-  state/                 — PredictionContext (passes results from
-                           Analyse Traffic -> Prediction Result)
-  charts/plotlyTheme.js  — shared dark theme for every Plotly chart
-  components/            — Layout (sidebar/topbar), SeverityBadge,
-                           StatCard, Feedback (loading/error/empty)
-  pages/                 — Dashboard, AnalyseTraffic, PredictionResult,
-                           DataVisualisation
-```
-
-## Build for deployment (Vercel)
-
-```bash
-npm run build
-```
-
-Outputs to `dist/`. Set the same `VITE_API_BASE_URL` and `VITE_USE_MOCK=false`
-as environment variables in the Vercel project settings before deploying.
+The application will fail to start if these secrets are not set.

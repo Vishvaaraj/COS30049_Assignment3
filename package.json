@@ -1,5 +1,5 @@
 {
-  "name": "ai4cyber-frontend",
+  "name": "COS30049-assignment3",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "axios": "^1.7.7",
-    "plotly.js-dist-min": "^2.35.2",
+    "plotly.js-cartesian-dist-min": "^2.35.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.3.5",

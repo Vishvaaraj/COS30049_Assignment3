@@ -14,6 +14,7 @@ export default function DataVisualisation() {
   const [error, setError] = useState(null);
 
   const [filterClass, setFilterClass] = useState(null);
+  const [f1FilterClass, setF1FilterClass] = useState('All');
   const [corrDataset, setCorrDataset] = useState('NSL-KDD');
 
   async function load() {
@@ -40,6 +41,7 @@ export default function DataVisualisation() {
   }, []);
 
   const classes = datasetStats ? Object.keys(datasetStats.class_distribution) : [];
+  const f1Classes = ['All', ...classes];
 
   const donutChart = datasetStats && (
     <Plot
@@ -81,7 +83,7 @@ export default function DataVisualisation() {
           name: 'Random Forest',
           marker: {
             color: '#2dd4f0',
-            opacity: classes.map((c) => (filterClass && c !== filterClass ? 0.25 : 1)),
+            opacity: classes.map((c) => (f1FilterClass !== 'All' && c !== f1FilterClass ? 0.25 : 1)),
           },
           hovertemplate: '<b>%{x}</b><br>RF F1: %{y:.2f}<extra></extra>',
         },
@@ -92,7 +94,7 @@ export default function DataVisualisation() {
           name: 'XGBoost',
           marker: {
             color: '#f3c344',
-            opacity: classes.map((c) => (filterClass && c !== filterClass ? 0.25 : 1)),
+            opacity: classes.map((c) => (f1FilterClass !== 'All' && c !== f1FilterClass ? 0.25 : 1)),
           },
           hovertemplate: '<b>%{x}</b><br>XGBoost F1: %{y:.2f}<extra></extra>',
         },
@@ -176,6 +178,13 @@ export default function DataVisualisation() {
             <div className="card card-pad">
               <div className="section-title">
                 <span>Per-class F1 score — RF vs XGBoost</span>
+                <div className="filter-controls">
+                  <select onChange={(e) => setF1FilterClass(e.target.value)} value={f1FilterClass}>
+                    {f1Classes.map((cls) => (
+                      <option key={cls} value={cls}>{cls}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               {loading ? <LoadingBlock label="Loading model comparison" /> : f1Chart}
             </div>

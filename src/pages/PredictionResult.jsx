@@ -9,6 +9,23 @@ import { plotlyDarkLayout, plotlyConfig, SEVERITY_COLOR } from '../charts/plotly
 import { RECOMMENDED_RESPONSE } from '../data/responsePlaybook';
 import './PredictionResult.css';
 
+function Toast({ message, show, onDismiss }) {
+  useEffect(() => {
+    if (show) {
+      const timer = setTimeout(() => {
+        onDismiss();
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [show, onDismiss]);
+
+  return (
+    <div className={`toast ${show ? 'show' : ''}`}>
+      {message}
+    </div>
+  );
+}
+
 export default function PredictionResult() {
   const navigate = useNavigate();
   const { result, fileName } = usePrediction();
@@ -21,6 +38,7 @@ export default function PredictionResult() {
   const [modelStats, setModelStats] = useState(null);
   const [statsError, setStatsError] = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
     if (!result) return;
@@ -73,6 +91,7 @@ export default function PredictionResult() {
     a.download = 'prediction_report.csv';
     a.click();
     URL.revokeObjectURL(url);
+    setShowToast(true);
   }
 
   if (!result) {
@@ -239,6 +258,8 @@ export default function PredictionResult() {
           Export report (.csv)
         </button>
       </div>
+      
+      <Toast message="Report exported" show={showToast} onDismiss={() => setShowToast(false)} />
     </div>
   );
 }

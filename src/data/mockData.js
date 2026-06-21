@@ -93,6 +93,25 @@ export const mockModelStats = {
       protocol_type: 0.053,
     },
   },
+  kmeans: {
+    accuracy: 0.8739,
+    per_class: {
+      Normal: { precision: 0.9, recall: 0.9, f1: 0.9 },
+      Anomaly: { precision: 0.85, recall: 0.85, f1: 0.85 },
+    },
+    feature_importance: [
+        { feature: 'src_bytes', importance: 0.18 },
+        { feature: 'dst_bytes', importance: 0.15 },
+        { feature: 'logged_in', importance: 0.12 },
+        { feature: 'count', importance: 0.1 },
+        { feature: 'srv_serror_rate', importance: 0.08 },
+        { feature: 'dst_host_srv_count', importance: 0.07 },
+        { feature: 'dst_host_same_srv_rate', importance: 0.06 },
+        { feature: 'dst_host_diff_srv_rate', importance: 0.05 },
+        { feature: 'dst_host_serror_rate', importance: 0.04 },
+        { feature: 'protocol_type', importance: 0.03 },
+    ],
+  },
 };
 
 // ---- GET /alerts -----------------------------------------------------
