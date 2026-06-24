@@ -88,7 +88,7 @@
   }
 }
 .alerts-table-wrap {
-  max-height: 320px;
+  max-height: 420px;
   overflow-y: auto;
 }
 .severity-donut-col {
@@ -107,6 +107,21 @@
 .filter-controls {
   display: flex;
   gap: 10px;
+}
+
+.alerts-title-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.alerts-count {
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .filter-controls select {

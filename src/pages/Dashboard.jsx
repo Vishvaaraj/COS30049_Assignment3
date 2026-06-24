@@ -16,6 +16,17 @@ const MODEL_LABELS = { random_forest: 'Random Forest', xgboost: 'XGBoost', kmean
 const HISTORY_KEY = 'netguard_dashboard_history';
 const MAX_SPARK = 20;
 
+function alertsCountLabel(shown, loaded, total) {
+  if (!total) return 'No alerts';
+  const noun = `${total} alert${total === 1 ? '' : 's'}`;
+  if (shown < loaded) {
+    const base = loaded < total ? `${loaded} of ${noun}` : noun;
+    return `${shown} shown · ${base}`;
+  }
+  if (loaded < total) return `${loaded} of ${noun}`;
+  return noun;
+}
+
 function loadHistory() {
   try {
     return JSON.parse(localStorage.getItem(HISTORY_KEY)) || { flows: [], threats: [], accuracy: [], alerts: [] };
@@ -41,6 +52,7 @@ export default function Dashboard() {
   const [datasetStats, setDatasetStats] = useState(null);
   const [allModelStats, setAllModelStats] = useState({});
   const [alerts, setAlerts] = useState(null);
+  const [alertTotal, setAlertTotal] = useState(0);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState('timestamp');
@@ -83,6 +95,14 @@ export default function Dashboard() {
     };
   }, []);
 
+  function applyAlertResponse(result) {
+    const items = result.alerts ?? [];
+    const total = result.total ?? items.length;
+    setAlerts(items);
+    setAlertTotal(total);
+    return items;
+  }
+
   async function load(isInitial = false) {
     if (isInitial) {
       setLoading(true);
@@ -91,16 +111,17 @@ export default function Dashboard() {
     }
     try {
       if (isInitial) {
-        const [ds, rf, xgb, km, al] = await Promise.all([
+        const [ds, rf, xgb, km, alertResult] = await Promise.all([
           fetchDatasetStats(),
           fetchModelStats('random_forest'),
           fetchModelStats('xgboost'),
           fetchModelStats('kmeans'),
-          fetchAlerts(50),
+          fetchAlerts(),
         ]);
+        const al = applyAlertResponse(alertResult);
+        const totalAlerts = alertResult.total ?? al.length;
         setDatasetStats(ds);
         setAllModelStats({ random_forest: rf, xgboost: xgb, kmeans: km });
-        setAlerts(al);
 
         const totalFlows = Object.values(ds.class_distribution).reduce((a, b) => a + b, 0);
         const threatCount = totalFlows - (ds.class_distribution.Normal || 0);
@@ -108,22 +129,24 @@ export default function Dashboard() {
           flows: pushHistory('flows', totalFlows),
           threats: pushHistory('threats', threatCount),
           accuracy: pushHistory('accuracy', Math.round(rf.accuracy * 10000) / 100),
-          alerts: pushHistory('alerts', al.length),
+          alerts: pushHistory('alerts', totalAlerts),
         };
         setSparkHistory(hist);
         const criticalCount = al.filter((a) => a.severity === 'Critical').length;
         const threatPctStr = totalFlows ? ((threatCount / totalFlows) * 100).toFixed(1) : '0.0';
         addLogEntry(
-          `Dashboard loaded · ${totalFlows.toLocaleString()} training flows · ${threatCount.toLocaleString()} threats (${threatPctStr}%) · ${al.length} alerts (${criticalCount} critical) · RF accuracy ${(rf.accuracy * 100).toFixed(2)}%`
+          `Dashboard loaded · ${totalFlows.toLocaleString()} training flows · ${threatCount.toLocaleString()} threats (${threatPctStr}%) · ${totalAlerts} alerts (${criticalCount} critical) · RF accuracy ${(rf.accuracy * 100).toFixed(2)}%`
         );
       } else {
-        const al = await fetchAlerts(50);
-        setAlerts(al);
-        setSparkHistory((prev) => ({ ...prev, alerts: pushHistory('alerts', al.length).alerts }));
+        const alertResult = await fetchAlerts();
+        const al = applyAlertResponse(alertResult);
+        const totalAlerts = alertResult.total ?? al.length;
+        setSparkHistory((prev) => ({ ...prev, alerts: pushHistory('alerts', totalAlerts).alerts }));
         const criticalCount = al.filter((a) => a.severity === 'Critical').length;
         const highCount = al.filter((a) => a.severity === 'High').length;
+        const totalLabel = totalAlerts > al.length ? `${al.length} of ${totalAlerts}` : String(totalAlerts);
         addLogEntry(
-          `Alerts refreshed · ${al.length} loaded · ${criticalCount} critical · ${highCount} high severity`
+          `Alerts refreshed · ${totalLabel} alerts · ${criticalCount} critical · ${highCount} high severity`
         );
       }
     } catch (e) {
@@ -272,7 +295,7 @@ export default function Dashboard() {
             />
             <StatCard
               label="Active alerts"
-              value={loading ? '—' : (alerts || []).length}
+              value={loading ? '—' : alertTotal}
               sub={loading ? undefined : `${criticalAlerts} critical`}
               accent="var(--critical)"
               sparklineData={sparkHistory.alerts}
@@ -330,7 +353,13 @@ export default function Dashboard() {
             <div className="card card-pad alerts-panel">
               <div className="section-title">
                 <span>Recent alerts</span>
-                <div className="filter-controls">
+                <div className="alerts-title-meta">
+                  <span className="eyebrow alerts-count">
+                    {!loading && alerts
+                      ? alertsCountLabel(filteredAndSortedAlerts.length, alerts.length, alertTotal)
+                      : 'Loading alerts…'}
+                  </span>
+                  <div className="filter-controls">
                   <select onChange={(e) => setSeverityFilter(e.target.value)} value={severityFilter}>
                     {SEVERITY_LEVELS.map((level) => (
                       <option key={level} value={level}>{level}</option>
@@ -341,6 +370,7 @@ export default function Dashboard() {
                       <option key={cls} value={cls}>{cls}</option>
                     ))}
                   </select>
+                </div>
                 </div>
               </div>
               <div className="alerts-layout">

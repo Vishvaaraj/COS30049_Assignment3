@@ -68,13 +68,17 @@ export async function fetchModelStats(modelId = 'random_forest') {
   }
 }
 
-export async function fetchAlerts(limit = 10) {
+export async function fetchAlerts(limit = 500) {
   if (USE_MOCK) {
     await delay(300);
-    return mockAlerts.slice(0, limit);
+    const alerts = mockAlerts.slice(0, limit);
+    return { alerts, total: mockAlerts.length };
   }
   try {
     const { data } = await http.get('/alerts', { params: { limit } });
+    if (Array.isArray(data)) {
+      return { alerts: data, total: data.length };
+    }
     return data;
   } catch (e) {
     throw toApiError(e);
