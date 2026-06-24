@@ -87,7 +87,7 @@ export default function Dashboard() {
     if (isInitial) {
       setLoading(true);
       setError(null);
-      addLogEntry('Dashboard loading…');
+      addLogEntry('Dashboard loading — fetching dataset stats, model metrics, and alerts…');
     }
     try {
       if (isInitial) {
@@ -111,19 +111,27 @@ export default function Dashboard() {
           alerts: pushHistory('alerts', al.length),
         };
         setSparkHistory(hist);
-        addLogEntry('Dashboard loaded successfully.');
+        const criticalCount = al.filter((a) => a.severity === 'Critical').length;
+        const threatPctStr = totalFlows ? ((threatCount / totalFlows) * 100).toFixed(1) : '0.0';
+        addLogEntry(
+          `Dashboard loaded · ${totalFlows.toLocaleString()} training flows · ${threatCount.toLocaleString()} threats (${threatPctStr}%) · ${al.length} alerts (${criticalCount} critical) · RF accuracy ${(rf.accuracy * 100).toFixed(2)}%`
+        );
       } else {
         const al = await fetchAlerts(50);
         setAlerts(al);
         setSparkHistory((prev) => ({ ...prev, alerts: pushHistory('alerts', al.length).alerts }));
-        addLogEntry('Alerts refreshed.');
+        const criticalCount = al.filter((a) => a.severity === 'Critical').length;
+        const highCount = al.filter((a) => a.severity === 'High').length;
+        addLogEntry(
+          `Alerts refreshed · ${al.length} loaded · ${criticalCount} critical · ${highCount} high severity`
+        );
       }
     } catch (e) {
       if (isInitial) {
         setError(e.message || 'Failed to load dashboard data.');
-        addLogEntry(`Error: ${e.message}`);
+        addLogEntry(`Dashboard load failed · ${e.message || 'Could not reach the API'}`);
       } else {
-        addLogEntry('Error refreshing alerts.');
+        addLogEntry(`Alert refresh failed · ${e.message || 'Could not fetch alerts from the API'}`);
       }
     } finally {
       if (isInitial) setLoading(false);
@@ -404,7 +412,9 @@ export default function Dashboard() {
                 <>
                   {filteredLog.map((entry) => (
                     <div key={entry.id} className="log-entry">
-                      <span className="log-timestamp">{entry.timestamp.toLocaleTimeString()}</span>
+                      <span className="log-timestamp">
+                        {entry.timestamp.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' })}
+                      </span>
                       <span className="log-message">{entry.message}</span>
                     </div>
                   ))}

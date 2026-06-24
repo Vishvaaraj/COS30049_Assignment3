@@ -105,14 +105,18 @@ export default function AnalyseTraffic() {
       const data = await submitPrediction(payloadFile, model);
       const name = mode === 'upload' ? file.name : 'Manual entry';
       recordRun({ fileName: name, inputCsv, result: data });
+      const topClass = Object.entries(data.summary.class_counts).sort((a, b) => b[1] - a[1])[0];
+      const threatRows = data.rows.filter((r) => r.predicted_class !== 'Normal').length;
+      const avgConf = data.rows.reduce((s, r) => s + r.confidence, 0) / data.rows.length;
+      const warningCount = data.rows.filter((r) => r.warnings?.length).length;
       appendActivityLog(
-        `Classification complete: ${name} · ${data.summary.total_rows} rows · ${data.summary.model_used.replace('_', ' ')}`
+        `Classification complete · source: ${name} · ${data.summary.total_rows} rows · model: ${data.summary.model_used.replace('_', ' ')} · top class: ${topClass[0]} (${topClass[1]} rows) · ${threatRows} non-normal · avg confidence ${(avgConf * 100).toFixed(1)}%${warningCount ? ` · ${warningCount} rows with data warnings` : ''}`
       );
       navigate('/result');
     } catch (e) {
       const msg = e.message || 'Classification failed. Please try again.';
       setSubmitError(msg);
-      appendActivityLog(`Classification failed: ${msg}`);
+      appendActivityLog(`Classification failed · source: ${mode === 'upload' ? file?.name || 'upload' : 'manual entry'} · model: ${model.replace('_', ' ')} · ${msg}`);
     } finally {
       setSubmitting(false);
     }

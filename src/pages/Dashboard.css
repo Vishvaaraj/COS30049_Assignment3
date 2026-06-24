@@ -133,7 +133,7 @@
 }
 
 .activity-log {
-  max-height: 200px;
+  max-height: 300px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -141,17 +141,28 @@
 
 .log-entry {
   display: flex;
-  gap: 15px;
+  gap: 14px;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-size: 12px;
-  padding: 6px 0;
+  padding: 8px 0;
   border-bottom: 1px solid var(--border-soft);
+  align-items: flex-start;
 }
 
 .log-timestamp {
   color: var(--text-tertiary);
   flex-shrink: 0;
+  min-width: 148px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.log-message {
+  flex: 1;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  word-break: break-word;
 }
 
 .log-empty {
