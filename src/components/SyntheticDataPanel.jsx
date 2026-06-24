@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { downloadSyntheticCsv, fetchSyntheticData, syntheticCsvToFile } from '../api/client';
 import { ErrorBanner } from './Feedback.jsx';
 
+export const DEFAULT_SYNTH_SETTINGS = { count: 25, mix: 'realistic', jitter: 0.08 };
+
 const MIX_OPTIONS = [
   { value: 'realistic', label: 'Realistic mix', hint: 'Same class proportions as training data' },
   { value: 'balanced', label: 'Balanced', hint: 'Equal rows per class' },
@@ -13,10 +15,8 @@ const MIX_OPTIONS = [
   { value: 'single:U2R', label: 'U2R only', hint: 'All rows from U2R class' },
 ];
 
-export default function SyntheticDataPanel({ onLoadFile }) {
-  const [count, setCount] = useState(25);
-  const [mix, setMix] = useState('realistic');
-  const [jitter, setJitter] = useState(0.08);
+export default function SyntheticDataPanel({ settings, onSettingsChange, onLoadFile }) {
+  const { count, mix, jitter } = settings;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -67,7 +67,7 @@ export default function SyntheticDataPanel({ onLoadFile }) {
               max={500}
               step={5}
               value={count}
-              onChange={(e) => setCount(Number(e.target.value))}
+              onChange={(e) => onSettingsChange({ ...settings, count: Number(e.target.value) })}
             />
             <span className="num synthetic-count-value">{count}</span>
           </div>
@@ -75,7 +75,11 @@ export default function SyntheticDataPanel({ onLoadFile }) {
 
         <div className="synthetic-field">
           <label htmlFor="syn-mix">Class mix</label>
-          <select id="syn-mix" value={mix} onChange={(e) => setMix(e.target.value)}>
+          <select
+            id="syn-mix"
+            value={mix}
+            onChange={(e) => onSettingsChange({ ...settings, mix: e.target.value })}
+          >
             {MIX_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
@@ -95,7 +99,7 @@ export default function SyntheticDataPanel({ onLoadFile }) {
               max={0.3}
               step={0.01}
               value={jitter}
-              onChange={(e) => setJitter(Number(e.target.value))}
+              onChange={(e) => onSettingsChange({ ...settings, jitter: Number(e.target.value) })}
             />
             <span className="num synthetic-count-value">{jitter.toFixed(2)}</span>
           </div>
@@ -110,12 +114,13 @@ export default function SyntheticDataPanel({ onLoadFile }) {
           Download CSV
         </button>
         <button className="btn btn-primary" type="button" onClick={handleGenerateAndLoad} disabled={loading}>
-          {loading ? 'Generating…' : 'Generate & load into uploader'}
+          {loading ? `Generating ${count} rows…` : 'Generate & load into uploader'}
         </button>
       </div>
 
       <p className="synthetic-caption">
         Rows are built from real recorded traffic with small variations — not invented from scratch — so predictions stay meaningful.
+        Up to 500 rows per batch.
       </p>
 
       {error && (

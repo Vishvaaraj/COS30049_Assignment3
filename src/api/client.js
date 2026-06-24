@@ -25,7 +25,13 @@ function toApiError(error) {
     };
   }
   if (error.request) {
-    return { message: 'Could not reach the server. Check your connection or try again.', status: null };
+    return {
+      message:
+        error.code === 'ECONNABORTED'
+          ? 'Request timed out — try fewer rows or check the server is running.'
+          : 'Could not reach the server. Check your connection or try again.',
+      status: null,
+    };
   }
   return { message: error.message || 'Something went wrong.', status: null };
 }
@@ -85,6 +91,7 @@ export async function submitPrediction(file, model = 'random_forest') {
     formData.append('model', model);
     const { data } = await http.post('/predict', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: Math.max(120000, (file?.estimatedRows || 25) * 500),
     });
     return data;
   } catch (e) {
@@ -94,13 +101,14 @@ export async function submitPrediction(file, model = 'random_forest') {
 
 export async function fetchSyntheticData({ count = 25, mix = 'realistic', jitter = 0.08 } = {}) {
   if (USE_MOCK) {
-    await delay(400);
+    await delay(Math.min(2000, 200 + count * 2));
     return generateMockSyntheticCsv(count, mix, jitter);
   }
   try {
     const { data } = await http.get('/synthetic-data', {
       params: { count, mix, jitter },
       responseType: 'text',
+      timeout: Math.max(60000, count * 200),
     });
     return data;
   } catch (e) {
