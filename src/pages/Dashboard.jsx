@@ -14,12 +14,28 @@ const ATTACK_CLASSES = ['All', 'Normal', 'DoS', 'Probe', 'R2L', 'U2R'];
 const MODEL_IDS = ['random_forest', 'xgboost', 'kmeans'];
 const MODEL_LABELS = { random_forest: 'Random Forest', xgboost: 'XGBoost', kmeans: 'K-Means' };
 const SEVERITY_ORDER = ['Critical', 'High', 'Medium', 'Low'];
+const ATTACK_CLASS_ORDER = ['Normal', 'DoS', 'Probe', 'R2L', 'U2R', 'Anomaly'];
 const SEVERITY_CHART_COLOR = {
   Critical: '#F2495E',
   High: '#F2914A',
   Medium: '#ECC54A',
   Low: '#5C8AA6',
 };
+const ATTACK_CHART_COLOR = {
+  Normal: '#2BA39A',
+  DoS: '#F2495E',
+  Probe: '#ECC54A',
+  R2L: '#F2914A',
+  U2R: '#C93D5A',
+  Anomaly: '#E8A33D',
+};
+
+function normalizeSeverity(value) {
+  if (!value) return null;
+  const key = String(value).trim().toLowerCase();
+  const map = { critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low' };
+  return map[key] || value;
+}
 const HISTORY_KEY = 'netguard_dashboard_history';
 const MAX_SPARK = 20;
 
@@ -214,14 +230,23 @@ export default function Dashboard() {
   const severityMix = useMemo(() => {
     const counts = Object.fromEntries(SEVERITY_ORDER.map((s) => [s, 0]));
     for (const a of filteredAndSortedAlerts) {
-      if (a.severity in counts) counts[a.severity] += 1;
-      else counts[a.severity] = (counts[a.severity] || 0) + 1;
+      const level = normalizeSeverity(a.severity);
+      if (level && level in counts) counts[level] += 1;
     }
     return counts;
   }, [filteredAndSortedAlerts]);
 
-  const severityPieLabels = SEVERITY_ORDER.filter((s) => severityMix[s] > 0);
-  const severityPieValues = severityPieLabels.map((s) => severityMix[s]);
+  const attackMix = useMemo(() => {
+    const counts = {};
+    for (const a of filteredAndSortedAlerts) {
+      const cls = a.class || 'Unknown';
+      counts[cls] = (counts[cls] || 0) + 1;
+    }
+    return counts;
+  }, [filteredAndSortedAlerts]);
+
+  const attackPieLabels = [...ATTACK_CLASS_ORDER.filter((c) => attackMix[c] > 0), ...Object.keys(attackMix).filter((c) => !ATTACK_CLASS_ORDER.includes(c))];
+  const attackPieValues = attackPieLabels.map((c) => attackMix[c]);
 
   const barChart = datasetStats && (
     <Plot
@@ -235,46 +260,46 @@ export default function Dashboard() {
         },
       ]}
       layout={plotlyDarkLayout({
-        height: 340,
-        margin: { t: 16, r: 16, b: 52, l: 58 },
+        height: 300,
+        margin: { t: 8, r: 12, b: 44, l: 52 },
         bargap: 0.28,
         yaxis: {
-          title: { text: 'Flow count', standoff: 12 },
+          title: { text: 'Flow count', standoff: 8 },
           gridcolor: '#232C36',
           automargin: true,
         },
         xaxis: { automargin: true },
       })}
-      config={plotlyConfig}
-      style={{ width: '100%', height: '100%' }}
+      config={{ ...plotlyConfig, displayModeBar: false }}
+      style={{ width: '100%', height: 300 }}
       useResizeHandler
     />
   );
 
-  const severityDonut = severityPieLabels.length > 0 && (
+  const attackTypeDonut = attackPieLabels.length > 0 && (
     <Plot
       data={[
         {
           type: 'pie',
-          labels: severityPieLabels,
-          values: severityPieValues,
+          labels: attackPieLabels,
+          values: attackPieValues,
           hole: 0.62,
           sort: false,
           direction: 'clockwise',
           marker: {
-            colors: severityPieLabels.map((s) => SEVERITY_CHART_COLOR[s] || ACCENT_SONAR),
+            colors: attackPieLabels.map((c) => ATTACK_CHART_COLOR[c] || ACCENT_SONAR),
           },
           textinfo: 'none',
           hovertemplate: '<b>%{label}</b><br>%{value} alerts<br>%{percent}<extra></extra>',
         },
       ]}
       layout={plotlyDarkLayout({
-        height: 150,
-        margin: { t: 8, r: 8, b: 8, l: 8 },
+        height: 128,
+        margin: { t: 4, r: 4, b: 4, l: 4 },
         showlegend: false,
       })}
       config={{ ...plotlyConfig, displayModeBar: false }}
-      style={{ width: '100%', height: 150 }}
+      style={{ width: '100%', height: 128, maxWidth: 128 }}
       useResizeHandler
     />
   );
@@ -439,18 +464,33 @@ export default function Dashboard() {
                 </div>
                 {!loading && alerts && alerts.length > 0 && (
                   <div className="severity-donut-col">
-                    <div className="eyebrow severity-mix-title">Severity mix</div>
+                    <div className="eyebrow severity-mix-title">Alert breakdown</div>
                     <div className="severity-mix-panel">
-                      <div className="severity-donut-wrap">{severityDonut}</div>
-                      <ul className="severity-mix-legend">
-                        {SEVERITY_ORDER.map((level) => (
-                          <li key={level} className="severity-mix-row">
-                            <span className="severity-mix-swatch" style={{ background: SEVERITY_CHART_COLOR[level] }} />
-                            <span>{level}</span>
-                            <span className="num severity-mix-count">{severityMix[level]}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      <div className="severity-donut-wrap">{attackTypeDonut}</div>
+                      <div className="mix-legend-group">
+                        <div className="mix-legend-heading">Attack type</div>
+                        <ul className="severity-mix-legend">
+                          {attackPieLabels.map((cls) => (
+                            <li key={cls} className="severity-mix-row">
+                              <span className="severity-mix-swatch" style={{ background: ATTACK_CHART_COLOR[cls] || ACCENT_SONAR }} />
+                              <span>{cls}</span>
+                              <span className="num severity-mix-count">{attackMix[cls]}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="mix-legend-group">
+                        <div className="mix-legend-heading">Severity</div>
+                        <ul className="severity-mix-legend">
+                          {SEVERITY_ORDER.map((level) => (
+                            <li key={level} className="severity-mix-row">
+                              <span className="severity-mix-swatch" style={{ background: SEVERITY_CHART_COLOR[level] }} />
+                              <span>{level}</span>
+                              <span className="num severity-mix-count">{severityMix[level]}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
                   </div>
                 )}

@@ -426,6 +426,28 @@ function RunSessionPanel({ run, isOpen, onToggle, onToast }) {
 
 
 
+          <div className="run-session-actions run-session-actions-top">
+
+            {run.inputCsv && (
+
+              <button className="btn btn-secondary" onClick={downloadInputCsv} type="button">
+
+                Download input (.csv)
+
+              </button>
+
+            )}
+
+            <button className="btn btn-primary" onClick={exportCsv} type="button">
+
+              Export results (.csv)
+
+            </button>
+
+          </div>
+
+
+
           {warningRows.length > 0 && (
 
             <div className="card card-pad warnings-panel">
@@ -631,26 +653,6 @@ function RunSessionPanel({ run, isOpen, onToggle, onToast }) {
           </div>
 
 
-
-          <div className="run-session-actions">
-
-            {run.inputCsv && (
-
-              <button className="btn btn-secondary" onClick={downloadInputCsv} type="button">
-
-                Download input (.csv)
-
-              </button>
-
-            )}
-
-            <button className="btn btn-primary" onClick={exportCsv} type="button">
-
-              Export results (.csv)
-
-            </button>
-
-          </div>
 
         </div>
 
