@@ -448,6 +448,22 @@ function RunSessionPanel({ run, isOpen, onToggle, onToast }) {
 
 
 
+          <div className="card card-pad run-session-section">
+
+            <div className="section-title">
+
+              <span>Confidence distribution by predicted class</span>
+
+              <span className="eyebrow">Low-confidence peaks = uncertain predictions</span>
+
+            </div>
+
+            {confidenceHistogram}
+
+          </div>
+
+
+
           {warningRows.length > 0 && (
 
             <div className="card card-pad warnings-panel">
@@ -633,22 +649,6 @@ function RunSessionPanel({ run, isOpen, onToggle, onToast }) {
               </table>
 
             </div>
-
-          </div>
-
-
-
-          <div className="card card-pad run-session-section">
-
-            <div className="section-title">
-
-              <span>Confidence distribution by predicted class</span>
-
-              <span className="eyebrow">Low-confidence peaks = uncertain predictions</span>
-
-            </div>
-
-            {confidenceHistogram}
 
           </div>
 

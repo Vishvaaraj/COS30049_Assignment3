@@ -185,6 +185,13 @@
   color: var(--text-primary);
   font-weight: 600;
 }
+
+.severity-mix-source {
+  margin: 4px 0 0;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
 @media (max-width: 900px) {
   .severity-donut-col {
     border-left: none;

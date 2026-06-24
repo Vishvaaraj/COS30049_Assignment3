@@ -14,20 +14,11 @@ const ATTACK_CLASSES = ['All', 'Normal', 'DoS', 'Probe', 'R2L', 'U2R'];
 const MODEL_IDS = ['random_forest', 'xgboost', 'kmeans'];
 const MODEL_LABELS = { random_forest: 'Random Forest', xgboost: 'XGBoost', kmeans: 'K-Means' };
 const SEVERITY_ORDER = ['Critical', 'High', 'Medium', 'Low'];
-const ATTACK_CLASS_ORDER = ['Normal', 'DoS', 'Probe', 'R2L', 'U2R', 'Anomaly'];
 const SEVERITY_CHART_COLOR = {
   Critical: '#F2495E',
   High: '#F2914A',
   Medium: '#ECC54A',
   Low: '#5C8AA6',
-};
-const ATTACK_CHART_COLOR = {
-  Normal: '#2BA39A',
-  DoS: '#F2495E',
-  Probe: '#ECC54A',
-  R2L: '#F2914A',
-  U2R: '#C93D5A',
-  Anomaly: '#E8A33D',
 };
 
 function normalizeSeverity(value) {
@@ -70,7 +61,7 @@ function pushHistory(key, value) {
 }
 
 export default function Dashboard() {
-  const { inferenceLatencyHistory } = usePrediction();
+  const { inferenceLatencyHistory, runs } = usePrediction();
 
   const [datasetStats, setDatasetStats] = useState(null);
   const [allModelStats, setAllModelStats] = useState({});
@@ -227,7 +218,7 @@ export default function Dashboard() {
       ? (inferenceLatencyHistory.reduce((a, b) => a + b, 0) / inferenceLatencyHistory.length).toFixed(1)
       : null;
 
-  const severityMix = useMemo(() => {
+  const alertSeverityMix = useMemo(() => {
     const counts = Object.fromEntries(SEVERITY_ORDER.map((s) => [s, 0]));
     for (const a of filteredAndSortedAlerts) {
       const level = normalizeSeverity(a.severity);
@@ -236,17 +227,26 @@ export default function Dashboard() {
     return counts;
   }, [filteredAndSortedAlerts]);
 
-  const attackMix = useMemo(() => {
-    const counts = {};
-    for (const a of filteredAndSortedAlerts) {
-      const cls = a.class || 'Unknown';
-      counts[cls] = (counts[cls] || 0) + 1;
+  const predictionSeverityMix = useMemo(() => {
+    const counts = Object.fromEntries(SEVERITY_ORDER.map((s) => [s, 0]));
+    for (const run of runs) {
+      for (const row of run.result?.rows ?? []) {
+        const level = normalizeSeverity(row.severity);
+        if (level && level in counts) counts[level] += 1;
+      }
     }
     return counts;
-  }, [filteredAndSortedAlerts]);
+  }, [runs]);
 
-  const attackPieLabels = [...ATTACK_CLASS_ORDER.filter((c) => attackMix[c] > 0), ...Object.keys(attackMix).filter((c) => !ATTACK_CLASS_ORDER.includes(c))];
-  const attackPieValues = attackPieLabels.map((c) => attackMix[c]);
+  const predictionRowTotal = useMemo(
+    () => runs.reduce((sum, run) => sum + (run.result?.rows?.length ?? 0), 0),
+    [runs]
+  );
+
+  const chartSeverityMix = predictionRowTotal > 0 ? predictionSeverityMix : alertSeverityMix;
+  const chartUsesPredictions = predictionRowTotal > 0;
+  const severityPieLabels = SEVERITY_ORDER.filter((s) => chartSeverityMix[s] > 0);
+  const severityPieValues = severityPieLabels.map((s) => chartSeverityMix[s]);
 
   const barChart = datasetStats && (
     <Plot
@@ -276,21 +276,21 @@ export default function Dashboard() {
     />
   );
 
-  const attackTypeDonut = attackPieLabels.length > 0 && (
+  const severityDonut = severityPieLabels.length > 0 && (
     <Plot
       data={[
         {
           type: 'pie',
-          labels: attackPieLabels,
-          values: attackPieValues,
+          labels: severityPieLabels,
+          values: severityPieValues,
           hole: 0.62,
           sort: false,
           direction: 'clockwise',
           marker: {
-            colors: attackPieLabels.map((c) => ATTACK_CHART_COLOR[c] || ACCENT_SONAR),
+            colors: severityPieLabels.map((s) => SEVERITY_CHART_COLOR[s] || ACCENT_SONAR),
           },
           textinfo: 'none',
-          hovertemplate: '<b>%{label}</b><br>%{value} alerts<br>%{percent}<extra></extra>',
+          hovertemplate: '<b>%{label}</b><br>%{value} rows<br>%{percent}<extra></extra>',
         },
       ]}
       layout={plotlyDarkLayout({
@@ -462,35 +462,25 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
-                {!loading && alerts && alerts.length > 0 && (
+                {!loading && (alerts?.length > 0 || predictionRowTotal > 0) && (
                   <div className="severity-donut-col">
-                    <div className="eyebrow severity-mix-title">Alert breakdown</div>
+                    <div className="eyebrow severity-mix-title">Severity mix</div>
                     <div className="severity-mix-panel">
-                      <div className="severity-donut-wrap">{attackTypeDonut}</div>
-                      <div className="mix-legend-group">
-                        <div className="mix-legend-heading">Attack type</div>
-                        <ul className="severity-mix-legend">
-                          {attackPieLabels.map((cls) => (
-                            <li key={cls} className="severity-mix-row">
-                              <span className="severity-mix-swatch" style={{ background: ATTACK_CHART_COLOR[cls] || ACCENT_SONAR }} />
-                              <span>{cls}</span>
-                              <span className="num severity-mix-count">{attackMix[cls]}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div className="mix-legend-group">
-                        <div className="mix-legend-heading">Severity</div>
-                        <ul className="severity-mix-legend">
-                          {SEVERITY_ORDER.map((level) => (
-                            <li key={level} className="severity-mix-row">
-                              <span className="severity-mix-swatch" style={{ background: SEVERITY_CHART_COLOR[level] }} />
-                              <span>{level}</span>
-                              <span className="num severity-mix-count">{severityMix[level]}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                      <div className="severity-donut-wrap">{severityDonut}</div>
+                      <ul className="severity-mix-legend">
+                        {SEVERITY_ORDER.map((level) => (
+                          <li key={level} className="severity-mix-row">
+                            <span className="severity-mix-swatch" style={{ background: SEVERITY_CHART_COLOR[level] }} />
+                            <span>{level}</span>
+                            <span className="num severity-mix-count">{chartSeverityMix[level]}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="severity-mix-source">
+                        {chartUsesPredictions
+                          ? `From ${predictionRowTotal.toLocaleString()} stored prediction rows`
+                          : 'From loaded alerts'}
+                      </p>
                     </div>
                   </div>
                 )}
