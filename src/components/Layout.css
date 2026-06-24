@@ -253,7 +253,28 @@
   margin-left: auto;
   display: flex;
   align-items: center;
+  gap: 12px;
   padding-left: 16px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.status-offline-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+  max-width: 280px;
+  text-align: right;
+}
+
+.status-offline-hint a {
+  color: var(--accent-beacon);
+  text-decoration: none;
+}
+
+.status-offline-hint a:hover {
+  text-decoration: underline;
 }
 
 .status-pulse-live .pulse-dot {
@@ -319,5 +340,9 @@
 @media (max-width: 640px) {
   .topbar {
     padding: 0 16px;
+  }
+  .status-offline-hint {
+    max-width: 100%;
+    font-size: 11px;
   }
 }

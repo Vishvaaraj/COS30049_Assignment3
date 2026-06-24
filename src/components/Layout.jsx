@@ -17,6 +17,9 @@ const PAGE_LABELS = {
   '/visualisation': 'Data Visualisation',
 };
 
+const HF_SPACE_URL =
+  import.meta.env.VITE_HF_SPACE_URL || 'https://huggingface.co/spaces/Vishvaaraj/COS30049-GP14-Assign3';
+
 export default function Layout({ children }) {
   const [navOpen, setNavOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -93,13 +96,25 @@ export default function Layout({ children }) {
             <div
               className={`status-pulse ${serverLive ? 'status-pulse-live' : 'status-pulse-offline'}`}
               role="status"
-              aria-label={serverLive ? 'Backend connected' : 'Backend offline'}
+              aria-label={
+                serverLive
+                  ? 'Backend connected'
+                  : 'Backend offline — please start the Hugging Face Space server'
+              }
             >
               <span className="pulse-dot">
                 {serverLive && <span className="pulse-ring" />}
               </span>
               <span className="status-text">{serverLive ? 'Live' : 'Offline'}</span>
             </div>
+            {!serverLive && (
+              <p className="status-offline-hint">
+                Please start the server on{' '}
+                <a href={HF_SPACE_URL} target="_blank" rel="noopener noreferrer">
+                  Hugging Face
+                </a>
+              </p>
+            )}
           </div>
         </header>
 

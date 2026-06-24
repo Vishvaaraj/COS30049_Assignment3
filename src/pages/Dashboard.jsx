@@ -13,6 +13,13 @@ const SEVERITY_LEVELS = ['All', 'Critical', 'High', 'Medium', 'Low'];
 const ATTACK_CLASSES = ['All', 'Normal', 'DoS', 'Probe', 'R2L', 'U2R'];
 const MODEL_IDS = ['random_forest', 'xgboost', 'kmeans'];
 const MODEL_LABELS = { random_forest: 'Random Forest', xgboost: 'XGBoost', kmeans: 'K-Means' };
+const SEVERITY_ORDER = ['Critical', 'High', 'Medium', 'Low'];
+const SEVERITY_CHART_COLOR = {
+  Critical: '#F2495E',
+  High: '#F2914A',
+  Medium: '#ECC54A',
+  Low: '#5C8AA6',
+};
 const HISTORY_KEY = 'netguard_dashboard_history';
 const MAX_SPARK = 20;
 
@@ -204,13 +211,17 @@ export default function Dashboard() {
       ? (inferenceLatencyHistory.reduce((a, b) => a + b, 0) / inferenceLatencyHistory.length).toFixed(1)
       : null;
 
-  const severityCounts = useMemo(() => {
-    if (!alerts) return {};
-    return alerts.reduce((acc, a) => {
-      acc[a.severity] = (acc[a.severity] || 0) + 1;
-      return acc;
-    }, {});
-  }, [alerts]);
+  const severityMix = useMemo(() => {
+    const counts = Object.fromEntries(SEVERITY_ORDER.map((s) => [s, 0]));
+    for (const a of filteredAndSortedAlerts) {
+      if (a.severity in counts) counts[a.severity] += 1;
+      else counts[a.severity] = (counts[a.severity] || 0) + 1;
+    }
+    return counts;
+  }, [filteredAndSortedAlerts]);
+
+  const severityPieLabels = SEVERITY_ORDER.filter((s) => severityMix[s] > 0);
+  const severityPieValues = severityPieLabels.map((s) => severityMix[s]);
 
   const barChart = datasetStats && (
     <Plot
@@ -224,36 +235,46 @@ export default function Dashboard() {
         },
       ]}
       layout={plotlyDarkLayout({
-        height: 320,
-        margin: { t: 10, r: 10, b: 36, l: 50 },
-        yaxis: { title: 'Flow count', gridcolor: '#232C36' },
+        height: 340,
+        margin: { t: 16, r: 16, b: 52, l: 58 },
+        bargap: 0.28,
+        yaxis: {
+          title: { text: 'Flow count', standoff: 12 },
+          gridcolor: '#232C36',
+          automargin: true,
+        },
+        xaxis: { automargin: true },
       })}
       config={plotlyConfig}
-      style={{ width: '100%' }}
+      style={{ width: '100%', height: '100%' }}
       useResizeHandler
     />
   );
 
-  const severityDonut = alerts && alerts.length > 0 && (
+  const severityDonut = severityPieLabels.length > 0 && (
     <Plot
       data={[
         {
           type: 'pie',
-          labels: Object.keys(severityCounts),
-          values: Object.values(severityCounts),
-          hole: 0.58,
+          labels: severityPieLabels,
+          values: severityPieValues,
+          hole: 0.62,
+          sort: false,
+          direction: 'clockwise',
           marker: {
-            colors: Object.keys(severityCounts).map((s) =>
-              ({ Critical: '#F2495E', High: '#F2914A', Medium: '#ECC54A', Low: '#5C8AA6' }[s] || ACCENT_SONAR)
-            ),
+            colors: severityPieLabels.map((s) => SEVERITY_CHART_COLOR[s] || ACCENT_SONAR),
           },
-          textinfo: 'label+value',
-          hovertemplate: '<b>%{label}</b><br>%{value} alerts<extra></extra>',
+          textinfo: 'none',
+          hovertemplate: '<b>%{label}</b><br>%{value} alerts<br>%{percent}<extra></extra>',
         },
       ]}
-      layout={plotlyDarkLayout({ height: 200, margin: { t: 0, r: 0, b: 0, l: 0 }, showlegend: false })}
+      layout={plotlyDarkLayout({
+        height: 150,
+        margin: { t: 8, r: 8, b: 8, l: 8 },
+        showlegend: false,
+      })}
       config={{ ...plotlyConfig, displayModeBar: false }}
-      style={{ width: '100%' }}
+      style={{ width: '100%', height: 150 }}
       useResizeHandler
     />
   );
@@ -342,12 +363,14 @@ export default function Dashboard() {
           </div>
 
           <div className="dashboard-grid">
-            <div className="card card-pad">
+            <div className="card card-pad distribution-card">
               <div className="section-title">
                 <span>Traffic class distribution</span>
                 <span className="eyebrow">Hover for exact counts</span>
               </div>
-              {loading ? <LoadingBlock label="Loading distribution" /> : barChart}
+              <div className="distribution-chart-wrap">
+                {loading ? <LoadingBlock label="Loading distribution" /> : barChart}
+              </div>
             </div>
 
             <div className="card card-pad alerts-panel">
@@ -416,8 +439,19 @@ export default function Dashboard() {
                 </div>
                 {!loading && alerts && alerts.length > 0 && (
                   <div className="severity-donut-col">
-                    <div className="eyebrow" style={{ marginBottom: 8 }}>Severity mix</div>
-                    {severityDonut}
+                    <div className="eyebrow severity-mix-title">Severity mix</div>
+                    <div className="severity-mix-panel">
+                      <div className="severity-donut-wrap">{severityDonut}</div>
+                      <ul className="severity-mix-legend">
+                        {SEVERITY_ORDER.map((level) => (
+                          <li key={level} className="severity-mix-row">
+                            <span className="severity-mix-swatch" style={{ background: SEVERITY_CHART_COLOR[level] }} />
+                            <span>{level}</span>
+                            <span className="num severity-mix-count">{severityMix[level]}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 )}
               </div>
