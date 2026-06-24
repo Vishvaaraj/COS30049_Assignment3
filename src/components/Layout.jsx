@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { checkServerHealth } from '../api/client';
 import './Layout.css';
 
 const NAV_ITEMS = [
@@ -17,33 +16,11 @@ const PAGE_LABELS = {
   '/visualisation': 'Data Visualisation',
 };
 
-const HEALTH_POLL_MS = 30_000;
-
 export default function Layout({ children }) {
   const [navOpen, setNavOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const [serverOnline, setServerOnline] = useState(null);
   const location = useLocation();
   const currentPage = PAGE_LABELS[location.pathname] ?? 'Dashboard';
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function ping() {
-      const ok = await checkServerHealth();
-      if (!cancelled) setServerOnline(ok);
-    }
-
-    ping();
-    const id = setInterval(ping, HEALTH_POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, []);
-
-  const statusLabel = serverOnline === null ? 'Checking…' : serverOnline ? 'Live' : 'Offline';
-  const statusClass = serverOnline === false ? 'status-pulse-offline' : '';
 
   return (
     <div className={`shell ${collapsed ? 'shell-collapsed' : ''}`}>
@@ -95,16 +72,14 @@ export default function Layout({ children }) {
           <span className="topbar-page-label">{currentPage}</span>
 
           <div className="topbar-right">
-            <div
-              className={`status-pulse ${statusClass}`}
-              role="status"
-              aria-label={serverOnline ? 'Server connected' : serverOnline === false ? 'Server unreachable' : 'Checking server'}
-            >
+            <div className="status-pulse" role="status" aria-label="Monitoring live">
               <span className="pulse-dot">
-                {serverOnline !== false && <span className="pulse-ring" />}
+                <span className="pulse-ring" />
               </span>
-              <span className="status-text">{statusLabel}</span>
+              <span className="status-text">Live</span>
             </div>
+            <span className="topbar-divider" aria-hidden="true" />
+            <span className="dataset-chip eyebrow">NSL-KDD · 5-class</span>
           </div>
         </header>
 

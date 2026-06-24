@@ -5,7 +5,6 @@ import { submitPrediction, fetchModelStats, fetchRandomSampleRow } from '../api/
 import { usePrediction } from '../state/PredictionContext.jsx';
 import { FEATURE_SPECS, emptyFeatureState, validateFeatures, featuresToCsvFile } from '../data/featureSpecs';
 import { FEATURE_GLOSSARY } from '../data/featureGlossary';
-import { appendActivityLog } from '../utils/activityLog';
 import { ErrorBanner } from '../components/Feedback.jsx';
 import SyntheticDataPanel from '../components/SyntheticDataPanel.jsx';
 import './AnalyseTraffic.css';
@@ -16,15 +15,19 @@ const AVAILABLE_MODELS = [
   { id: 'kmeans', label: 'K-Means' },
 ];
 
+function topPredictedClass(classCounts) {
+  if (!classCounts) return '—';
+  return Object.entries(classCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—';
+}
+
 export default function AnalyseTraffic() {
   const navigate = useNavigate();
-  const { recordRun, recentRuns } = usePrediction();
+  const { setResult, setFileName, recordRun, recentRuns } = usePrediction();
 
   const [mode, setMode] = useState('upload');
   const [file, setFile] = useState(null);
   const [fileError, setFileError] = useState(null);
   const [fileSummary, setFileSummary] = useState(null);
-  const [dropzoneKey, setDropzoneKey] = useState(0);
 
   const [featureValues, setFeatureValues] = useState(emptyFeatureState());
   const [touched, setTouched] = useState({});
@@ -79,6 +82,28 @@ export default function AnalyseTraffic() {
     setMode('upload');
   }, []);
 
+  const onDrop = useCallback(
+    (accepted, rejected) => {
+      setFileError(null);
+      setFileSummary(null);
+      if (rejected && rejected.length > 0) {
+        setFileError('Only .csv or .json files are accepted.');
+        return;
+      }
+      const f = accepted[0];
+      if (!f) return;
+      loadFileIntoUploader(f);
+    },
+    [loadFileIntoUploader]
+  );
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    multiple: false,
+    accept: { 'text/csv': ['.csv'], 'application/json': ['.json'] },
+    maxSize: 50 * 1024 * 1024,
+  });
+
   function handleFeatureChange(key, value) {
     setFeatureValues((prev) => ({ ...prev, [key]: value }));
   }
@@ -105,25 +130,27 @@ export default function AnalyseTraffic() {
     }
   }
 
-  const canSubmit =
-    mode === 'upload' ? !!file && !fileError && fileSummary?.cols === 9 : manualValid;
+  const canSubmit = mode === 'upload' ? !!file && !fileError : manualValid;
 
   async function handleSubmit() {
     setSubmitError(null);
     setSubmitting(true);
     try {
       const payloadFile = mode === 'upload' ? file : featuresToCsvFile(featureValues);
-      const inputCsv =
-        mode === 'upload' ? await file.text() : [FEATURE_SPECS.map((f) => f.key).join(','), FEATURE_SPECS.map((f) => featureValues[f.key]).join(',')].join('\n');
       const data = await submitPrediction(payloadFile, model);
+      setResult(data);
       const name = mode === 'upload' ? file.name : 'Manual entry';
-      recordRun({ fileName: name, inputCsv, result: data });
-      appendActivityLog(`Classification complete: ${name} · ${data.summary.total_rows} rows · ${data.summary.model_used.replace('_', ' ')}`);
+      setFileName(name);
+      recordRun({
+        timestamp: new Date().toISOString(),
+        model: data.summary.model_used,
+        rowCount: data.summary.total_rows,
+        topClass: topPredictedClass(data.summary.class_counts),
+        fileName: name,
+      });
       navigate('/result');
     } catch (e) {
-      const msg = e.message || 'Classification failed. Please try again.';
-      setSubmitError(msg);
-      appendActivityLog(`Classification failed: ${msg}`);
+      setSubmitError(e.message || 'Classification failed. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -136,7 +163,6 @@ export default function AnalyseTraffic() {
     setFeatureValues(emptyFeatureState());
     setTouched({});
     setSubmitError(null);
-    setDropzoneKey((k) => k + 1);
   }
 
   function handleResetClick() {
@@ -181,15 +207,35 @@ export default function AnalyseTraffic() {
           </div>
 
           {mode === 'upload' ? (
-            <FileUploadZone
-              key={dropzoneKey}
-              file={file}
-              fileError={fileError}
-              fileSummary={fileSummary}
-              onDropFile={loadFileIntoUploader}
-              onReject={() => setFileError('Only .csv or .json files are accepted.')}
-              onClearError={() => setFileError(null)}
-            />
+            <div>
+              <div
+                {...getRootProps()}
+                className={`dropzone ${isDragActive ? 'dropzone-active' : ''} ${fileError ? 'dropzone-error' : ''}`}
+              >
+                <input {...getInputProps()} />
+                <UploadCloudIcon />
+                {file ? (
+                  <>
+                    <div className="dropzone-filename">{file.name}</div>
+                    <div className="dropzone-hint">{(file.size / 1024).toFixed(1)} KB · click or drop to replace</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="dropzone-title">Drop your file here</div>
+                    <div className="dropzone-hint">.csv or .json · up to 50 MB · predictions returned for every row</div>
+                  </>
+                )}
+              </div>
+              {file && fileSummary && (
+                <div className="file-summary-row">
+                  <span className={fileSummary.cols !== 9 ? 'field-error' : ''}>
+                    Detected {fileSummary.rows} rows × {fileSummary.cols} columns.
+                    {fileSummary.cols !== 9 && ' Warning: Expected 9 columns for NSL-KDD.'}
+                  </span>
+                </div>
+              )}
+              {fileError && <div className="field-error" style={{ marginTop: 10 }}>{fileError}</div>}
+            </div>
           ) : (
             <>
               <div className="manual-toolbar">
@@ -299,7 +345,7 @@ export default function AnalyseTraffic() {
               </div>
               <ul className="recent-runs-list">
                 {recentRuns.map((run) => (
-                  <li key={run.id}>
+                  <li key={run.timestamp + run.fileName}>
                     <span className="num recent-run-time">{new Date(run.timestamp).toLocaleString()}</span>
                     <span className="recent-run-detail">
                       {run.fileName} · {run.rowCount} rows · {run.model.replace('_', ' ')} · top: {run.topClass}
@@ -337,67 +383,12 @@ export default function AnalyseTraffic() {
             <h3>Clear all entered values?</h3>
             <p>This action cannot be undone.</p>
             <div className="modal-actions">
-              <button className="btn" type="button" onClick={() => setShowResetModal(false)}>Cancel</button>
-              <button className="btn btn-danger-outline" type="button" onClick={confirmReset}>Confirm</button>
+              <button className="btn" onClick={() => setShowResetModal(false)}>Cancel</button>
+              <button className="btn btn-danger-outline" onClick={confirmReset}>Confirm</button>
             </div>
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function FileUploadZone({ file, fileError, fileSummary, onDropFile, onReject, onClearError }) {
-  const onDrop = useCallback(
-    (accepted, rejected) => {
-      onClearError();
-      if (rejected && rejected.length > 0) {
-        onReject();
-        return;
-      }
-      const f = accepted[0];
-      if (!f) return;
-      onDropFile(f);
-    },
-    [onDropFile, onReject, onClearError]
-  );
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    multiple: false,
-    accept: { 'text/csv': ['.csv'], 'application/json': ['.json'] },
-    maxSize: 50 * 1024 * 1024,
-  });
-
-  return (
-    <div>
-      <div
-        {...getRootProps()}
-        className={`dropzone ${isDragActive ? 'dropzone-active' : ''} ${fileError ? 'dropzone-error' : ''}`}
-      >
-        <input {...getInputProps()} />
-        <UploadCloudIcon />
-        {file ? (
-          <>
-            <div className="dropzone-filename">{file.name}</div>
-            <div className="dropzone-hint">{(file.size / 1024).toFixed(1)} KB · click or drop to replace</div>
-          </>
-        ) : (
-          <>
-            <div className="dropzone-title">Drop your file here</div>
-            <div className="dropzone-hint">.csv or .json · 9 feature columns · up to 50 MB</div>
-          </>
-        )}
-      </div>
-      {file && fileSummary && (
-        <div className="file-summary-row">
-          <span className={fileSummary.cols !== 9 ? 'field-error' : ''}>
-            Detected {fileSummary.rows} rows × {fileSummary.cols} columns.
-            {fileSummary.cols !== 9 && ' Upload must have exactly 9 feature columns.'}
-          </span>
-        </div>
-      )}
-      {fileError && <div className="field-error" style={{ marginTop: 10 }}>{fileError}</div>}
     </div>
   );
 }

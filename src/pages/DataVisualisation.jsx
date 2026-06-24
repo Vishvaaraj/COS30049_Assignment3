@@ -10,7 +10,7 @@ import './DataVisualisation.css';
 const METRICS = ['precision', 'recall', 'f1'];
 
 export default function DataVisualisation() {
-  const { runs, selectedRunId } = usePrediction();
+  const { result } = usePrediction();
 
   const [datasetStats, setDatasetStats] = useState(null);
   const [rfStats, setRfStats] = useState(null);
@@ -61,8 +61,7 @@ export default function DataVisualisation() {
     return support;
   }, [rfStats, classes]);
 
-  const comparedRun = runs.find((r) => r.id === selectedRunId) ?? runs[0] ?? null;
-  const liveClassCounts = comparedRun?.result?.summary?.class_counts ?? null;
+  const liveClassCounts = result?.summary?.class_counts ?? null;
 
   const donutChart = datasetStats && (
     <Plot
@@ -360,10 +359,8 @@ export default function DataVisualisation() {
           {liveClassCounts && expectedSupport && (
             <div className="card card-pad" style={{ marginTop: 18 }}>
               <div className="section-title">
-                <span>Expected distribution vs. selected batch</span>
-                <span className="eyebrow">
-                  {comparedRun.fileName} · training support vs. live class_counts
-                </span>
+                <span>Expected distribution vs. last batch</span>
+                <span className="eyebrow">Training support vs. live class_counts — not a confusion matrix</span>
               </div>
               {distributionCompareChart}
             </div>
@@ -371,7 +368,7 @@ export default function DataVisualisation() {
 
           {!liveClassCounts && (
             <div className="card card-pad distribution-hint" style={{ marginTop: 18 }}>
-              <p>Run a classification on Analyse Traffic to compare your batch&apos;s class distribution against training support.</p>
+              <p>Run a classification on Analyse Traffic to compare your batch&apos;s class_counts against training support.</p>
             </div>
           )}
 
