@@ -16,7 +16,6 @@
     }
   ],
   "rewrites": [
-    { "handle": "filesystem" },
     {
       "source": "/(.*)",
       "has": [{ "type": "header", "key": "accept", "value": ".*text/html.*" }],
