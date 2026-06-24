@@ -1,27 +1,19 @@
-const LOG_KEY = 'netguard_activity_log';
-const MAX_ENTRIES = 200;
+import { fetchActivityLogs, postActivityLog } from '../api/client';
 
-export function loadActivityLog() {
-  try {
-    const raw = localStorage.getItem(LOG_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw).map((e) => ({ ...e, timestamp: new Date(e.timestamp) }));
-  } catch {
-    return [];
-  }
+export function normalizeLogEntry(row) {
+  return {
+    id: row.id ?? `local-${row.created_at}`,
+    timestamp: new Date(row.created_at ?? row.timestamp),
+    message: row.message,
+  };
 }
 
-export function appendActivityLog(message) {
-  const entry = { timestamp: new Date().toISOString(), message };
-  const prev = loadActivityLog().map((e) => ({
-    timestamp: e.timestamp.toISOString(),
-    message: e.message,
-  }));
-  const next = [entry, ...prev].slice(0, MAX_ENTRIES);
-  try {
-    localStorage.setItem(LOG_KEY, JSON.stringify(next));
-  } catch {
-    /* quota exceeded */
-  }
-  return next.map((e) => ({ ...e, timestamp: new Date(e.timestamp) }));
+export async function loadActivityLog(limit = 200) {
+  const rows = await fetchActivityLogs(limit);
+  return rows.map(normalizeLogEntry);
+}
+
+export async function appendActivityLog(message) {
+  const saved = await postActivityLog(message);
+  return normalizeLogEntry(saved);
 }

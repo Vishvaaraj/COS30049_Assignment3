@@ -6,6 +6,7 @@ import StatCard from '../components/StatCard.jsx';
 import SeverityBadge from '../components/SeverityBadge.jsx';
 import { LoadingBlock, ErrorBanner } from '../components/Feedback.jsx';
 import { plotlyDarkLayout, plotlyConfig, SEVERITY_COLOR, ACCENT_BEACON, ACCENT_SONAR } from '../charts/plotlyTheme';
+import { loadActivityLog, appendActivityLog } from '../utils/activityLog';
 import './Dashboard.css';
 
 const SEVERITY_LEVELS = ['All', 'Critical', 'High', 'Medium', 'Low'];
@@ -49,9 +50,37 @@ export default function Dashboard() {
   const [activityLog, setActivityLog] = useState([]);
   const [logFilter, setLogFilter] = useState('');
   const [sparkHistory, setSparkHistory] = useState(loadHistory);
+  const [logsLoading, setLogsLoading] = useState(true);
 
-  const addLogEntry = useCallback((message) => {
-    setActivityLog((prev) => [{ timestamp: new Date(), message }, ...prev].slice(0, 50));
+  const addLogEntry = useCallback(async (message) => {
+    const optimistic = { id: `local-${Date.now()}`, timestamp: new Date(), message };
+    setActivityLog((prev) => [optimistic, ...prev].slice(0, 200));
+    try {
+      const saved = await appendActivityLog(message);
+      setActivityLog((prev) => {
+        const without = prev.filter((e) => e.id !== optimistic.id);
+        return [saved, ...without].slice(0, 200);
+      });
+    } catch {
+      /* keep optimistic entry */
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadActivityLog(200)
+      .then((entries) => {
+        if (!cancelled) setActivityLog(entries);
+      })
+      .catch(() => {
+        /* show empty log */
+      })
+      .finally(() => {
+        if (!cancelled) setLogsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function load(isInitial = false) {
@@ -369,13 +398,19 @@ export default function Dashboard() {
               />
             </div>
             <div className="activity-log">
-              {filteredLog.map((entry, index) => (
-                <div key={index} className="log-entry">
-                  <span className="log-timestamp">{entry.timestamp.toLocaleTimeString()}</span>
-                  <span className="log-message">{entry.message}</span>
-                </div>
-              ))}
-              {filteredLog.length === 0 && <div className="log-empty">No matching log entries.</div>}
+              {logsLoading ? (
+                <LoadingBlock label="Loading activity log" />
+              ) : (
+                <>
+                  {filteredLog.map((entry) => (
+                    <div key={entry.id} className="log-entry">
+                      <span className="log-timestamp">{entry.timestamp.toLocaleTimeString()}</span>
+                      <span className="log-message">{entry.message}</span>
+                    </div>
+                  ))}
+                  {filteredLog.length === 0 && <div className="log-empty">No matching log entries.</div>}
+                </>
+              )}
             </div>
           </div>
         </>

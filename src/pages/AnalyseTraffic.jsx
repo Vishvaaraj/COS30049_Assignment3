@@ -311,7 +311,7 @@ export default function AnalyseTraffic() {
             <div className="card card-pad recent-runs">
               <div className="section-title">
                 <span>Recent test runs</span>
-                <span className="eyebrow">Saved predictions — not cleared by reset</span>
+                <span className="eyebrow">Stored in Supabase</span>
               </div>
               <ul className="recent-runs-list">
                 {recentRuns.map((run) => (
@@ -356,8 +356,7 @@ export default function AnalyseTraffic() {
           <div className="modal-content card" onClick={(e) => e.stopPropagation()}>
             <h3>Clear all entered values?</h3>
             <p>
-              Resets the upload area, manual fields, and test data generator. Saved prediction runs on the Result page
-              are kept.
+              Resets the upload area, manual fields, and test data generator. Prediction history in Supabase is kept.
             </p>
             <div className="modal-actions">
               <button className="btn" type="button" onClick={() => setShowResetModal(false)}>

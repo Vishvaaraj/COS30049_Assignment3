@@ -1,34 +1,51 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
-import { buildOutputCsv } from '../utils/predictionCsv';
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
+import { fetchPredictionRuns, savePredictionRun, clearPredictionRunsApi } from '../api/client';
+import { buildLocalRun, buildRunPayload, normalizeRun } from '../utils/predictionRun';
 
-const RUNS_KEY = 'netguard_prediction_runs';
 const LATENCY_KEY = 'netguard_inference_latency';
-const MAX_RUNS = 15;
-const MAX_INPUT_CSV_CHARS = 250_000;
+const MOCK_RUNS_KEY = 'netguard_mock_prediction_runs';
 
 const PredictionContext = createContext(null);
 
-function loadJson(key, fallback) {
+function loadLatency() {
   try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
+    return JSON.parse(localStorage.getItem(LATENCY_KEY)) || [];
   } catch {
-    return fallback;
+    return [];
   }
 }
 
-function persistJson(key, value) {
+function persistLatency(values) {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    localStorage.setItem(LATENCY_KEY, JSON.stringify(values));
   } catch {
-    /* quota exceeded */
+    /* ignore */
+  }
+}
+
+function loadMockRuns() {
+  try {
+    const raw = localStorage.getItem(MOCK_RUNS_KEY);
+    return raw ? JSON.parse(raw).map(normalizeRun) : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistMockRuns(runs) {
+  try {
+    localStorage.setItem(MOCK_RUNS_KEY, JSON.stringify(runs));
+  } catch {
+    /* ignore */
   }
 }
 
 export function PredictionProvider({ children }) {
-  const [runs, setRuns] = useState(() => loadJson(RUNS_KEY, []));
-  const [selectedRunId, setSelectedRunId] = useState(() => loadJson(RUNS_KEY, [])[0]?.id ?? null);
-  const [inferenceLatencyHistory, setInferenceLatencyHistory] = useState(() => loadJson(LATENCY_KEY, []));
+  const [runs, setRuns] = useState([]);
+  const [selectedRunId, setSelectedRunId] = useState(null);
+  const [runsLoading, setRunsLoading] = useState(true);
+  const [runsError, setRunsError] = useState(null);
+  const [inferenceLatencyHistory, setInferenceLatencyHistory] = useState(loadLatency);
 
   const selectedRun = useMemo(
     () => runs.find((r) => r.id === selectedRunId) ?? runs[0] ?? null,
@@ -38,46 +55,72 @@ export function PredictionProvider({ children }) {
   const result = selectedRun?.result ?? null;
   const fileName = selectedRun?.fileName ?? null;
 
-  const recordRun = useCallback(({ fileName: name, inputCsv, result: data }) => {
-    const avgMs =
-      data.rows.length > 0 ? data.rows.reduce((s, r) => s + r.inference_time_ms, 0) / data.rows.length : 0;
-
-    const classCounts = data.summary.class_counts;
-    const topClass = Object.entries(classCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '—';
-
-    const run = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      timestamp: new Date().toISOString(),
-      fileName: name,
-      model: data.summary.model_used,
-      rowCount: data.summary.total_rows,
-      topClass,
-      result: data,
-      inputCsv: inputCsv && inputCsv.length <= MAX_INPUT_CSV_CHARS ? inputCsv : null,
-      inputCsvTruncated: Boolean(inputCsv && inputCsv.length > MAX_INPUT_CSV_CHARS),
-      outputCsv: buildOutputCsv(data),
-    };
-
-    setRuns((prev) => {
-      const next = [run, ...prev].slice(0, MAX_RUNS);
-      persistJson(RUNS_KEY, next);
-      return next;
-    });
-    setSelectedRunId(run.id);
-
-    setInferenceLatencyHistory((prev) => {
-      const next = [...prev, Math.round(avgMs * 10) / 10].slice(-20);
-      persistJson(LATENCY_KEY, next);
-      return next;
-    });
-
-    window.dispatchEvent(new CustomEvent('netguard:prediction-complete'));
+  const refreshRuns = useCallback(async () => {
+    setRunsLoading(true);
+    setRunsError(null);
+    try {
+      const data = await fetchPredictionRuns(30);
+      const normalized = data.map(normalizeRun).filter(Boolean);
+      setRuns(normalized);
+      setSelectedRunId((prev) => {
+        if (prev && normalized.some((r) => r.id === prev)) return prev;
+        return normalized[0]?.id ?? null;
+      });
+    } catch (e) {
+      setRunsError(e.message || 'Failed to load prediction history.');
+      const mockFallback = loadMockRuns();
+      if (mockFallback.length > 0) {
+        setRuns(mockFallback);
+        setSelectedRunId(mockFallback[0]?.id ?? null);
+      }
+    } finally {
+      setRunsLoading(false);
+    }
   }, []);
 
-  const clearRunHistory = useCallback(() => {
+  useEffect(() => {
+    refreshRuns();
+  }, [refreshRuns]);
+
+  const recordRun = useCallback(
+    async ({ fileName: name, inputCsv, result: data }) => {
+      const avgMs =
+        data.rows.length > 0 ? data.rows.reduce((s, r) => s + r.inference_time_ms, 0) / data.rows.length : 0;
+
+      const optimistic = buildLocalRun({ fileName: name, inputCsv, result: data });
+      setRuns((prev) => [optimistic, ...prev.filter((r) => r.id !== optimistic.id)].slice(0, 30));
+      setSelectedRunId(optimistic.id);
+
+      setInferenceLatencyHistory((prev) => {
+        const next = [...prev, Math.round(avgMs * 10) / 10].slice(-20);
+        persistLatency(next);
+        return next;
+      });
+
+      try {
+        const saved = await savePredictionRun(buildRunPayload({ fileName: name, inputCsv, result: data }));
+        const normalized = normalizeRun(saved);
+        setRuns((prev) => [normalized, ...prev.filter((r) => r.id !== optimistic.id)].slice(0, 30));
+        setSelectedRunId(normalized.id);
+      } catch (e) {
+        console.warn('Could not save run to Supabase:', e);
+        persistMockRuns([optimistic, ...loadMockRuns()].slice(0, 30));
+      }
+
+      window.dispatchEvent(new CustomEvent('netguard:prediction-complete'));
+    },
+    []
+  );
+
+  const clearRunHistory = useCallback(async () => {
+    try {
+      await clearPredictionRunsApi();
+    } catch (e) {
+      console.warn('Could not clear Supabase runs:', e);
+    }
     setRuns([]);
     setSelectedRunId(null);
-    persistJson(RUNS_KEY, []);
+    localStorage.removeItem(MOCK_RUNS_KEY);
   }, []);
 
   const recentRuns = runs;
@@ -94,6 +137,9 @@ export function PredictionProvider({ children }) {
         setSelectedRunId,
         recordRun,
         clearRunHistory,
+        refreshRuns,
+        runsLoading,
+        runsError,
         inferenceLatencyHistory,
       }}
     >

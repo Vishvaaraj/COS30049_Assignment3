@@ -10,7 +10,7 @@ import './DataVisualisation.css';
 const METRICS = ['precision', 'recall', 'f1'];
 
 export default function DataVisualisation() {
-  const { result } = usePrediction();
+  const { runs, selectedRunId } = usePrediction();
 
   const [datasetStats, setDatasetStats] = useState(null);
   const [rfStats, setRfStats] = useState(null);
@@ -61,7 +61,8 @@ export default function DataVisualisation() {
     return support;
   }, [rfStats, classes]);
 
-  const liveClassCounts = result?.summary?.class_counts ?? null;
+  const comparedRun = runs.find((r) => r.id === selectedRunId) ?? runs[0] ?? null;
+  const liveClassCounts = comparedRun?.result?.summary?.class_counts ?? null;
 
   const donutChart = datasetStats && (
     <Plot

@@ -11,6 +11,8 @@ import {
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false';
+const MOCK_RUNS_KEY = 'netguard_mock_prediction_runs';
+const MOCK_LOG_KEY = 'netguard_mock_activity_log';
 
 const http = axios.create({
   baseURL: BASE_URL,
@@ -147,4 +149,126 @@ export async function downloadSyntheticCsv(params) {
   a.download = `synthetic-${params.mix || 'realistic'}-${params.count || 25}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function loadMockRunsFromStorage() {
+  try {
+    return JSON.parse(localStorage.getItem(MOCK_RUNS_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+
+function saveMockRunsToStorage(runs) {
+  try {
+    localStorage.setItem(MOCK_RUNS_KEY, JSON.stringify(runs));
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function fetchPredictionRuns(limit = 30) {
+  if (USE_MOCK) {
+    await delay(200);
+    return loadMockRunsFromStorage().slice(0, limit);
+  }
+  try {
+    const { data } = await http.get('/prediction-runs', { params: { limit } });
+    return data;
+  } catch (e) {
+    throw toApiError(e);
+  }
+}
+
+export async function savePredictionRun(payload) {
+  if (USE_MOCK) {
+    await delay(300);
+    const saved = {
+      id: `mock-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      ...payload,
+    };
+    const next = [saved, ...loadMockRunsFromStorage()].slice(0, 30);
+    saveMockRunsToStorage(next);
+    return saved;
+  }
+  try {
+    const { data } = await http.post('/prediction-runs', payload, { timeout: 60000 });
+    return data;
+  } catch (e) {
+    throw toApiError(e);
+  }
+}
+
+export async function clearPredictionRunsApi() {
+  if (USE_MOCK) {
+    localStorage.removeItem(MOCK_RUNS_KEY);
+    return { ok: true };
+  }
+  try {
+    const { data } = await http.delete('/prediction-runs');
+    return data;
+  } catch (e) {
+    throw toApiError(e);
+  }
+}
+
+function loadMockActivityLogs() {
+  try {
+    const raw = localStorage.getItem(MOCK_LOG_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveMockActivityLogs(entries) {
+  try {
+    localStorage.setItem(MOCK_LOG_KEY, JSON.stringify(entries));
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function fetchActivityLogs(limit = 200) {
+  if (USE_MOCK) {
+    await delay(150);
+    return loadMockActivityLogs().slice(0, limit);
+  }
+  try {
+    const { data } = await http.get('/activity-logs', { params: { limit } });
+    return data;
+  } catch (e) {
+    throw toApiError(e);
+  }
+}
+
+export async function postActivityLog(message) {
+  if (USE_MOCK) {
+    await delay(100);
+    const entry = {
+      id: `mock-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      message,
+    };
+    const next = [entry, ...loadMockActivityLogs()].slice(0, 200);
+    saveMockActivityLogs(next);
+    return entry;
+  }
+  try {
+    const { data } = await http.post('/activity-logs', { message });
+    return data;
+  } catch (e) {
+    throw toApiError(e);
+  }
+}
+
+export async function checkServerHealth() {
+  if (USE_MOCK) return true;
+  try {
+    await http.get('/', { timeout: 5000 });
+    return true;
+  } catch {
+    return false;
+  }
 }

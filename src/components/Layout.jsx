@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { checkServerHealth } from '../api/client';
 import './Layout.css';
 
 const NAV_ITEMS = [
@@ -19,8 +20,25 @@ const PAGE_LABELS = {
 export default function Layout({ children }) {
   const [navOpen, setNavOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [serverLive, setServerLive] = useState(false);
   const location = useLocation();
   const currentPage = PAGE_LABELS[location.pathname] ?? 'Dashboard';
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function ping() {
+      const ok = await checkServerHealth();
+      if (!cancelled) setServerLive(ok);
+    }
+
+    ping();
+    const interval = setInterval(ping, 20000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <div className={`shell ${collapsed ? 'shell-collapsed' : ''}`}>
@@ -72,14 +90,16 @@ export default function Layout({ children }) {
           <span className="topbar-page-label">{currentPage}</span>
 
           <div className="topbar-right">
-            <div className="status-pulse" role="status" aria-label="Monitoring live">
+            <div
+              className={`status-pulse ${serverLive ? 'status-pulse-live' : 'status-pulse-offline'}`}
+              role="status"
+              aria-label={serverLive ? 'Backend connected' : 'Backend offline'}
+            >
               <span className="pulse-dot">
-                <span className="pulse-ring" />
+                {serverLive && <span className="pulse-ring" />}
               </span>
-              <span className="status-text">Live</span>
+              <span className="status-text">{serverLive ? 'Live' : 'Offline'}</span>
             </div>
-            <span className="topbar-divider" aria-hidden="true" />
-            <span className="dataset-chip eyebrow">NSL-KDD · 5-class</span>
           </div>
         </header>
 
