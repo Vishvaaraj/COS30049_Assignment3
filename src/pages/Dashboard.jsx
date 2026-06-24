@@ -5,6 +5,7 @@ import { usePrediction } from '../state/PredictionContext.jsx';
 import StatCard from '../components/StatCard.jsx';
 import SeverityBadge from '../components/SeverityBadge.jsx';
 import { LoadingBlock, ErrorBanner } from '../components/Feedback.jsx';
+import { loadActivityLog, appendActivityLog } from '../utils/activityLog';
 import { plotlyDarkLayout, plotlyConfig, SEVERITY_COLOR, ACCENT_BEACON, ACCENT_SONAR } from '../charts/plotlyTheme';
 import './Dashboard.css';
 
@@ -46,13 +47,28 @@ export default function Dashboard() {
   const [sortDir, setSortDir] = useState('desc');
   const [severityFilter, setSeverityFilter] = useState('All');
   const [attackClassFilter, setAttackClassFilter] = useState('All');
-  const [activityLog, setActivityLog] = useState([]);
+  const [activityLog, setActivityLog] = useState(() => loadActivityLog());
   const [logFilter, setLogFilter] = useState('');
   const [sparkHistory, setSparkHistory] = useState(loadHistory);
+  const [refreshingAlerts, setRefreshingAlerts] = useState(false);
 
   const addLogEntry = useCallback((message) => {
-    setActivityLog((prev) => [{ timestamp: new Date(), message }, ...prev].slice(0, 50));
+    setActivityLog(appendActivityLog(message));
   }, []);
+
+  async function refreshAlerts() {
+    setRefreshingAlerts(true);
+    try {
+      const al = await fetchAlerts(50);
+      setAlerts(al);
+      setSparkHistory((prev) => ({ ...prev, alerts: pushHistory('alerts', al.length).alerts }));
+      addLogEntry('Alerts refreshed.');
+    } catch {
+      addLogEntry('Error refreshing alerts.');
+    } finally {
+      setRefreshingAlerts(false);
+    }
+  }
 
   async function load(isInitial = false) {
     if (isInitial) {
@@ -83,18 +99,11 @@ export default function Dashboard() {
         };
         setSparkHistory(hist);
         addLogEntry('Dashboard loaded successfully.');
-      } else {
-        const al = await fetchAlerts(50);
-        setAlerts(al);
-        setSparkHistory((prev) => ({ ...prev, alerts: pushHistory('alerts', al.length).alerts }));
-        addLogEntry('Alerts refreshed.');
       }
     } catch (e) {
       if (isInitial) {
         setError(e.message || 'Failed to load dashboard data.');
         addLogEntry(`Error: ${e.message}`);
-      } else {
-        addLogEntry('Error refreshing alerts.');
       }
     } finally {
       if (isInitial) setLoading(false);
@@ -103,8 +112,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     load(true);
-    const pollInterval = setInterval(() => load(false), 15000);
-    return () => clearInterval(pollInterval);
+  }, []);
+
+  useEffect(() => {
+    const onPrediction = () => refreshAlerts();
+    window.addEventListener('netguard:prediction-complete', onPrediction);
+    return () => window.removeEventListener('netguard:prediction-complete', onPrediction);
   }, []);
 
   const filteredAndSortedAlerts = useMemo(() => {
@@ -294,6 +307,9 @@ export default function Dashboard() {
               <div className="section-title">
                 <span>Recent alerts</span>
                 <div className="filter-controls">
+                  <button className="btn btn-secondary alerts-refresh-btn" type="button" onClick={refreshAlerts} disabled={refreshingAlerts || loading}>
+                    {refreshingAlerts ? 'Refreshing…' : 'Refresh'}
+                  </button>
                   <select onChange={(e) => setSeverityFilter(e.target.value)} value={severityFilter}>
                     {SEVERITY_LEVELS.map((level) => (
                       <option key={level} value={level}>{level}</option>

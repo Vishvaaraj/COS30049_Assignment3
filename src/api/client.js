@@ -19,10 +19,19 @@ const http = axios.create({
 
 function toApiError(error) {
   if (error.response) {
-    return {
-      message: error.response.data?.detail || error.response.data?.message || 'The server rejected the request.',
-      status: error.response.status,
-    };
+    const detail = error.response.data?.detail;
+    let message = error.response.data?.message || 'The server rejected the request.';
+    if (typeof detail === 'string') {
+      message = detail;
+    } else if (Array.isArray(detail)) {
+      message = detail.map((d) => d.msg || JSON.stringify(d)).join('; ');
+    } else if (detail && typeof detail === 'object') {
+      message = detail.message || JSON.stringify(detail);
+    }
+    if (error.response.status === 500 && message === 'The server rejected the request.') {
+      message = 'Server error during classification. This is often a Supabase alert-insert failure on the backend — predictions may still have run. Check Hugging Face logs and apply app/supabase_client.py fix.';
+    }
+    return { message, status: error.response.status };
   }
   if (error.request) {
     return { message: 'Could not reach the server. Check your connection or try again.', status: null };
@@ -73,6 +82,15 @@ export async function fetchAlerts(limit = 10) {
   }
 }
 
+export async function checkServerHealth() {
+  try {
+    await http.get('/dataset-stats', { timeout: 5000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function submitPrediction(file, model = 'random_forest') {
   if (USE_MOCK) {
     await delay(900);
@@ -85,6 +103,7 @@ export async function submitPrediction(file, model = 'random_forest') {
     formData.append('model', model);
     const { data } = await http.post('/predict', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
     });
     return data;
   } catch (e) {

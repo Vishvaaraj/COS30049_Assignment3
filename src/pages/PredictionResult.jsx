@@ -4,6 +4,7 @@ import Plot from '../charts/Plot.jsx';
 import { usePrediction } from '../state/PredictionContext.jsx';
 import SeverityBadge from '../components/SeverityBadge.jsx';
 import { EmptyState } from '../components/Feedback.jsx';
+import { downloadTextFile } from '../utils/predictionCsv';
 import { plotlyDarkLayout, plotlyConfig, SEVERITY_COLOR, ACCENT_BEACON } from '../charts/plotlyTheme';
 import { FEATURE_SPECS } from '../data/featureSpecs';
 import './PredictionResult.css';
@@ -49,12 +50,17 @@ function ProbabilityBars({ probabilities }) {
 
 export default function PredictionResult() {
   const navigate = useNavigate();
-  const { result, fileName } = usePrediction();
+  const { result, fileName, runs, selectedRunId, setSelectedRunId, selectedRun } = usePrediction();
 
   const [expandedRowId, setExpandedRowId] = useState(null);
   const [sortKey, setSortKey] = useState('row_id');
   const [sortDir, setSortDir] = useState('asc');
   const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('Report exported');
+
+  useEffect(() => {
+    setExpandedRowId(null);
+  }, [selectedRunId]);
 
   const summary = useMemo(() => {
     if (!result) return null;
@@ -94,23 +100,22 @@ export default function PredictionResult() {
   }
 
   function exportCsv() {
-    if (!result) return;
-    const headers = ['row_id', 'predicted_class', 'confidence', 'severity', 'model_used', 'inference_time_ms'];
-    const lines = [headers.join(',')];
-    result.rows.forEach((r) => {
-      lines.push([r.row_id, r.predicted_class, r.confidence, r.severity, r.model_used, r.inference_time_ms].join(','));
-    });
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'prediction_report.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    if (!selectedRun?.outputCsv) return;
+    const base = selectedRun.fileName.replace(/\.[^.]+$/, '') || 'prediction';
+    downloadTextFile(selectedRun.outputCsv, `${base}-results.csv`);
+    setToastMessage('Results exported');
     setShowToast(true);
   }
 
-  if (!result) {
+  function downloadInputCsv() {
+    if (!selectedRun?.inputCsv) return;
+    const base = selectedRun.fileName.replace(/\.[^.]+$/, '') || 'input';
+    downloadTextFile(selectedRun.inputCsv, `${base}-input.csv`);
+    setToastMessage('Input data exported');
+    setShowToast(true);
+  }
+
+  if (!result || runs.length === 0) {
     return (
       <div className="page-result">
         <div className="page-header">
@@ -178,6 +183,36 @@ export default function PredictionResult() {
           {fileName} · {result.summary.total_rows} rows · {result.summary.model_used.replace('_', ' ')}
         </p>
       </div>
+
+      {runs.length > 1 && (
+        <div className="card card-pad run-history-bar">
+          <div className="section-title">
+            <span>Run history</span>
+            <span className="eyebrow">{runs.length} saved run{runs.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="run-history-list">
+            {runs.map((run) => (
+              <button
+                key={run.id}
+                type="button"
+                className={`run-history-item ${run.id === selectedRunId ? 'run-history-item-active' : ''}`}
+                onClick={() => setSelectedRunId(run.id)}
+              >
+                <span className="run-history-time num">{new Date(run.timestamp).toLocaleString()}</span>
+                <span className="run-history-meta">
+                  {run.fileName} · {run.rowCount} rows · {run.model.replace('_', ' ')}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {selectedRun?.inputCsvTruncated && (
+        <div className="card card-pad input-truncated-hint">
+          Input CSV was too large to store in the browser. Re-export is unavailable for this run; run classification again if you need a copy.
+        </div>
+      )}
 
       <div className="card card-pad result-summary-header">
         <div className="summary-stats">
@@ -317,12 +352,17 @@ export default function PredictionResult() {
         <button className="btn btn-secondary" onClick={() => navigate('/analyse')} type="button">
           Run another batch
         </button>
+        {selectedRun?.inputCsv && (
+          <button className="btn btn-secondary" onClick={downloadInputCsv} type="button">
+            Download input (.csv)
+          </button>
+        )}
         <button className="btn btn-primary" onClick={exportCsv} type="button">
           Export results (.csv)
         </button>
       </div>
 
-      <Toast message="Report exported" show={showToast} onDismiss={() => setShowToast(false)} />
+      <Toast message={toastMessage} show={showToast} onDismiss={() => setShowToast(false)} />
     </div>
   );
 }
