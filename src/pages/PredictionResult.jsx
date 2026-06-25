@@ -10,7 +10,9 @@ import SeverityBadge from '../components/SeverityBadge.jsx';
 
 import { EmptyState, LoadingBlock } from '../components/Feedback.jsx';
 
-import { downloadTextFile } from '../utils/predictionCsv';
+import { downloadTextFile, buildOutputCsv } from '../utils/predictionCsv';
+
+import { resolveRowSeverity } from '../utils/severity';
 
 import { plotlyDarkLayout, plotlyConfig, SEVERITY_COLOR, ACCENT_BEACON } from '../charts/plotlyTheme';
 
@@ -132,11 +134,21 @@ function RunSessionPanel({ run, isOpen, onToggle, onToast }) {
 
 
 
+  const modelId = run.model || result?.summary?.model_used;
+
+  const displayRows = useMemo(() => {
+    if (!result?.rows) return [];
+    return result.rows.map((row) => ({
+      ...row,
+      severity: resolveRowSeverity(row, modelId),
+    }));
+  }, [result, modelId]);
+
   const sortedRows = useMemo(() => {
 
-    if (!result?.rows) return [];
+    if (!displayRows.length) return [];
 
-    const rows = [...result.rows];
+    const rows = [...displayRows];
 
     rows.sort((a, b) => {
 
@@ -154,7 +166,7 @@ function RunSessionPanel({ run, isOpen, onToggle, onToast }) {
 
     return rows;
 
-  }, [result, sortKey, sortDir]);
+  }, [displayRows, sortKey, sortDir]);
 
 
 
@@ -194,11 +206,11 @@ function RunSessionPanel({ run, isOpen, onToggle, onToast }) {
 
   function exportCsv() {
 
-    if (!run.outputCsv) return;
+    if (!result?.rows?.length) return;
 
     const base = run.fileName.replace(/\.[^.]+$/, '') || 'prediction';
 
-    downloadTextFile(run.outputCsv, `${base}-results.csv`);
+    downloadTextFile(buildOutputCsv(result, modelId), `${base}-results.csv`);
 
     onToast('Results exported');
 

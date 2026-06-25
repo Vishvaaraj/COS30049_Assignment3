@@ -30,7 +30,7 @@ export function buildRunPayload({ fileName, inputCsv, result }) {
     row_count: result.summary.total_rows,
     top_class: topClass,
     input_csv: truncated ? null : inputCsv || null,
-    output_csv: buildOutputCsv(result),
+    output_csv: buildOutputCsv(result, result.summary.model_used),
     result_json: result,
     input_csv_truncated: truncated,
   };

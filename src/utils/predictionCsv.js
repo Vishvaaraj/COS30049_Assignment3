@@ -1,9 +1,12 @@
-export function buildOutputCsv(result) {
+import { resolveRowSeverity } from './severity';
+
+export function buildOutputCsv(result, model) {
   if (!result?.rows) return '';
   const headers = ['row_id', 'predicted_class', 'confidence', 'severity', 'model_used', 'inference_time_ms'];
   const lines = [headers.join(',')];
   result.rows.forEach((r) => {
-    lines.push([r.row_id, r.predicted_class, r.confidence, r.severity, r.model_used, r.inference_time_ms].join(','));
+    const severity = model ? resolveRowSeverity(r, model) : r.severity;
+    lines.push([r.row_id, r.predicted_class, r.confidence, severity, r.model_used, r.inference_time_ms].join(','));
   });
   return lines.join('\n');
 }
