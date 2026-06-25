@@ -2,11 +2,11 @@
 
 **COS30049 Assignment 3 · Group 14**
 
-| Member | |
-|--------|---|
-| Trishanth Thanendran | |
-| Vishvaaraj Jegaraj | |
-| Nigel Wong | |
+| Member |
+|--------|
+| Trishanth Thanendran |
+| Vishvaaraj Jegaraj |
+| Nigel Wong |
 
 NetGuard is a web application for classifying network traffic flows and surfacing potential intrusions. It connects a React frontend to a FastAPI backend that serves three models trained on the NSL-KDD dataset from Assignment 2: **Random Forest**, **XGBoost**, and **K-Means**.
 
