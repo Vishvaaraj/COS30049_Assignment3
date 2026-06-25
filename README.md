@@ -1,33 +1,114 @@
+# NetGuard — Network Traffic Analysis
+
+**COS30049 Assignment 3 · Group 14**
+
+| Member | |
+|--------|---|
+| Trishanth Thanendran | |
+| Vishvaaraj Jegaraj | |
+| Nigel Wong | |
+
+NetGuard is a web application for classifying network traffic flows and surfacing potential intrusions. It connects a React frontend to a FastAPI backend that serves three models trained on the NSL-KDD dataset from Assignment 2: **Random Forest**, **XGBoost**, and **K-Means**.
+
 ---
-title: AI4Cyber Anomaly Detection API
-emoji: 🛡️
-colorFrom: blue
-colorTo: green
-sdk: docker
-app_port: 7860
+
+## Links
+
+| | URL |
+|---|-----|
+| **Website** (NetGuard UI) | [https://cos30049-gp14.vercel.app/](https://cos30049-gp14.vercel.app/) |
+| **Hugging Face Space** (where the AI models run) | [https://huggingface.co/spaces/Vishvaaraj/COS30049-GP14-Assign3](https://huggingface.co/spaces/Vishvaaraj/COS30049-GP14-Assign3) |
+| **API base URL** | [https://vishvaaraj-cos30049-gp14-assign3.hf.space/](https://vishvaaraj-cos30049-gp14-assign3.hf.space/) |
+| **Detection API** (interactive docs for testing) | [https://vishvaaraj-cos30049-gp14-assign3.hf.space/docs](https://vishvaaraj-cos30049-gp14-assign3.hf.space/docs) |
+
+The frontend calls the API base URL. Use the Detection API docs to try `/predict`, `/dataset-stats`, `/model-stats`, and other endpoints directly.
+
 ---
 
-# AI4Cyber Anomaly Detection API
+## What the website does
 
-This Hugging Face Space hosts the FastAPI backend for the COS30049 Assignment 3 project by Group 14.
+NetGuard lets analysts upload traffic data, run ML classification, and review results in one place.
 
-## Overview
+### Dashboard
+- Live overview of training-corpus statistics and model performance
+- Recent classifications or alerts with severity and attack-type filters
+- Severity mix chart, activity log, and model comparison metrics
 
-This backend serves three pre-trained machine learning models (Random Forest, XGBoost, K-Means) to detect network intrusions. It provides a "live" experience by running real inference, persisting prediction history to a Supabase database, and serving statistics based on the actual trained artifacts.
+### Analyse Traffic
+- Upload a CSV (9 feature columns) or enter flow features manually
+- Generate synthetic test data with configurable class mix and row count
+- Choose a model and run batch classification against the live API
+- View recent test runs stored in Supabase
 
-### What "Live" Means
+### Prediction Result
+- Collapsible history of every classification run
+- Per-row predictions with confidence, severity, and probability breakdown
+- Export input and output CSVs; confidence charts per predicted class
 
-- **Real Inference**: The `/predict` endpoint runs inference on the actual `scikit-learn` and `xgboost` models.
-- **Persisted Alerts**: Every prediction that is not "Normal" is logged as an alert to a Supabase Postgres database. The `GET /alerts` endpoint reads directly from this table.
-- **Real Stats**: The `/dataset-stats` and `/model-stats` endpoints return data derived from the real training dataset and model evaluation metrics from Assignment 2.
+### Data Visualisation
+- Dataset class distribution and per-class model metrics (RF vs XGBoost)
+- Feature importance comparison and K-Means Normal vs Anomaly performance
+- Feature correlation heatmap
 
-This backend does **not** perform live network packet capture.
+### Backend (Hugging Face Space)
+- Real inference via `/predict` — not mock responses
+- Alerts and prediction runs persisted to **Supabase**
+- Synthetic data generation, dataset stats, and model evaluation metrics
 
-## Environment Variables (Secrets)
+---
 
-To connect to the Supabase database, you must set the following secrets in your Hugging Face Space settings:
+## Repository structure
 
-- `SUPABASE_URL`: The URL of your Supabase project.
-- `SUPABASE_SERVICE_KEY`: The `service_role` key for your Supabase project.
+```
+assign3/                    # React frontend (Vite)
+├── src/                    # Pages, components, API client
+├── vercel.json             # SPA routing for Vercel
+└── COS30049-GP14-Assign3/  # FastAPI backend (Hugging Face Space)
+    ├── app/                # main.py, ml.py, supabase_client.py
+    ├── ml_artifacts/       # Trained models and dataset
+    └── supabase/           # SQL schemas for prediction_runs, activity_logs
+```
 
-The application will fail to start if these secrets are not set.
+---
+
+## Tech stack
+
+| Layer | Technologies |
+|-------|----------------|
+| Frontend | React, Vite, React Router, Plotly, Axios |
+| Backend | FastAPI, scikit-learn, XGBoost, pandas |
+| Database | Supabase (Postgres) |
+| Deploy | Vercel (frontend), Hugging Face Spaces (backend) |
+
+---
+
+## Local development
+
+### Frontend
+
+```bash
+npm install
+cp .env.example .env
+npm run dev
+```
+
+Set in `.env`:
+
+```env
+VITE_API_BASE_URL=https://vishvaaraj-cos30049-gp14-assign3.hf.space
+VITE_USE_MOCK=false
+VITE_HF_SPACE_URL=https://huggingface.co/spaces/Vishvaaraj/COS30049-GP14-Assign3
+```
+
+Use `VITE_USE_MOCK=true` to run the UI without a backend.
+
+### Backend
+
+See `COS30049-GP14-Assign3/` — run with uvicorn on port 7860. Requires `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` for persistence.
+
+---
+
+## Course
+
+**COS30049** — Cyber Security Analytics  
+Swinburne University of Technology
