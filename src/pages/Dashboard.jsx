@@ -7,10 +7,11 @@ import SeverityBadge from '../components/SeverityBadge.jsx';
 import { LoadingBlock, ErrorBanner } from '../components/Feedback.jsx';
 import { plotlyDarkLayout, plotlyConfig, SEVERITY_COLOR, ACCENT_BEACON, ACCENT_SONAR } from '../charts/plotlyTheme';
 import { loadActivityLog, appendActivityLog } from '../utils/activityLog';
+import { normalizeSeverity, resolveRowSeverity } from '../utils/severity';
 import './Dashboard.css';
 
 const SEVERITY_LEVELS = ['All', 'Critical', 'High', 'Medium', 'Low'];
-const ATTACK_CLASSES = ['All', 'Normal', 'DoS', 'Probe', 'R2L', 'U2R'];
+const ATTACK_CLASS_OPTIONS = ['All', 'Normal', 'DoS', 'Probe', 'R2L', 'U2R', 'Anomaly'];
 const MODEL_IDS = ['random_forest', 'xgboost', 'kmeans'];
 const MODEL_LABELS = { random_forest: 'Random Forest', xgboost: 'XGBoost', kmeans: 'K-Means' };
 const SEVERITY_ORDER = ['Critical', 'High', 'Medium', 'Low'];
@@ -21,24 +22,39 @@ const SEVERITY_CHART_COLOR = {
   Low: '#5C8AA6',
 };
 
-function normalizeSeverity(value) {
-  if (!value) return null;
-  const key = String(value).trim().toLowerCase();
-  const map = { critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low' };
-  return map[key] || value;
-}
 const HISTORY_KEY = 'netguard_dashboard_history';
 const MAX_SPARK = 20;
 
-function alertsCountLabel(shown, loaded, total) {
-  if (!total) return 'No alerts';
-  const noun = `${total} alert${total === 1 ? '' : 's'}`;
+function activityCountLabel(shown, loaded, total, usingPredictions) {
+  const noun = usingPredictions
+    ? `${total} classification row${total === 1 ? '' : 's'}`
+    : `${total} alert${total === 1 ? '' : 's'}`;
+  if (!total) return usingPredictions ? 'No classification rows' : 'No alerts';
   if (shown < loaded) {
     const base = loaded < total ? `${loaded} of ${noun}` : noun;
     return `${shown} shown · ${base}`;
   }
   if (loaded < total) return `${loaded} of ${noun}`;
   return noun;
+}
+
+function flattenPredictionRows(runList) {
+  const rows = [];
+  for (const run of runList) {
+    for (const row of run.result?.rows ?? []) {
+      rows.push({
+        id: `${run.id}-${row.row_id}`,
+        row_id: row.row_id,
+        severity: resolveRowSeverity(row, run.model),
+        class: row.predicted_class,
+        confidence: row.confidence,
+        timestamp: run.timestamp,
+        model: run.model,
+        source_ip: null,
+      });
+    }
+  }
+  return rows;
 }
 
 function loadHistory() {
@@ -181,19 +197,56 @@ export default function Dashboard() {
     return () => clearInterval(pollInterval);
   }, []);
 
-  const filteredAndSortedAlerts = useMemo(() => {
-    if (!alerts) return [];
-    let filtered = [...alerts];
-    if (severityFilter !== 'All') filtered = filtered.filter((a) => a.severity === severityFilter);
-    if (attackClassFilter !== 'All') filtered = filtered.filter((a) => a.class === attackClassFilter);
+  const predictionActivityRows = useMemo(() => flattenPredictionRows(runs), [runs]);
+
+  const predictionRowTotal = predictionActivityRows.length;
+  const usingPredictionRows = predictionRowTotal > 0;
+
+  const activityRows = useMemo(() => {
+    if (usingPredictionRows) return predictionActivityRows;
+    return (alerts ?? []).map((a) => ({
+      ...a,
+      severity: normalizeSeverity(a.severity),
+      row_id: null,
+      model: a.model_used,
+    }));
+  }, [usingPredictionRows, predictionActivityRows, alerts]);
+
+  const activityTotal = usingPredictionRows ? predictionRowTotal : alertTotal;
+
+  const classFilterOptions = ATTACK_CLASS_OPTIONS;
+
+  const filteredActivityRows = useMemo(() => {
+    let filtered = [...activityRows];
+    if (severityFilter !== 'All') {
+      filtered = filtered.filter((r) => normalizeSeverity(r.severity) === severityFilter);
+    }
+    if (attackClassFilter !== 'All') {
+      filtered = filtered.filter((r) => r.class === attackClassFilter);
+    }
     return filtered.sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
       if (av < bv) return sortDir === 'asc' ? -1 : 1;
       if (av > bv) return sortDir === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [alerts, sortKey, sortDir, severityFilter, attackClassFilter]);
+  }, [activityRows, sortKey, sortDir, severityFilter, attackClassFilter]);
+
+  const chartSeverityMix = useMemo(() => {
+    const counts = Object.fromEntries(SEVERITY_ORDER.map((s) => [s, 0]));
+    for (const row of filteredActivityRows) {
+      const level = normalizeSeverity(row.severity);
+      if (level && level in counts) counts[level] += 1;
+    }
+    return counts;
+  }, [filteredActivityRows]);
+
+  const severityPieLabels = SEVERITY_ORDER.filter((s) => chartSeverityMix[s] > 0);
+  const severityPieValues = severityPieLabels.map((s) => chartSeverityMix[s]);
 
   const filteredLog = useMemo(() => {
     if (!logFilter.trim()) return activityLog;
@@ -217,36 +270,6 @@ export default function Dashboard() {
     inferenceLatencyHistory.length > 0
       ? (inferenceLatencyHistory.reduce((a, b) => a + b, 0) / inferenceLatencyHistory.length).toFixed(1)
       : null;
-
-  const alertSeverityMix = useMemo(() => {
-    const counts = Object.fromEntries(SEVERITY_ORDER.map((s) => [s, 0]));
-    for (const a of filteredAndSortedAlerts) {
-      const level = normalizeSeverity(a.severity);
-      if (level && level in counts) counts[level] += 1;
-    }
-    return counts;
-  }, [filteredAndSortedAlerts]);
-
-  const predictionSeverityMix = useMemo(() => {
-    const counts = Object.fromEntries(SEVERITY_ORDER.map((s) => [s, 0]));
-    for (const run of runs) {
-      for (const row of run.result?.rows ?? []) {
-        const level = normalizeSeverity(row.severity);
-        if (level && level in counts) counts[level] += 1;
-      }
-    }
-    return counts;
-  }, [runs]);
-
-  const predictionRowTotal = useMemo(
-    () => runs.reduce((sum, run) => sum + (run.result?.rows?.length ?? 0), 0),
-    [runs]
-  );
-
-  const chartSeverityMix = predictionRowTotal > 0 ? predictionSeverityMix : alertSeverityMix;
-  const chartUsesPredictions = predictionRowTotal > 0;
-  const severityPieLabels = SEVERITY_ORDER.filter((s) => chartSeverityMix[s] > 0);
-  const severityPieValues = severityPieLabels.map((s) => chartSeverityMix[s]);
 
   const barChart = datasetStats && (
     <Plot
@@ -294,12 +317,12 @@ export default function Dashboard() {
         },
       ]}
       layout={plotlyDarkLayout({
-        height: 128,
-        margin: { t: 4, r: 4, b: 4, l: 4 },
+        height: 120,
+        margin: { t: 0, r: 0, b: 0, l: 0 },
         showlegend: false,
       })}
       config={{ ...plotlyConfig, displayModeBar: false }}
-      style={{ width: '100%', height: 128, maxWidth: 128 }}
+      style={{ width: 120, height: 120 }}
       useResizeHandler
     />
   );
@@ -400,12 +423,17 @@ export default function Dashboard() {
 
             <div className="card card-pad alerts-panel">
               <div className="section-title">
-                <span>Recent alerts</span>
+                <span>{usingPredictionRows ? 'Recent classifications' : 'Recent alerts'}</span>
                 <div className="alerts-title-meta">
                   <span className="eyebrow alerts-count">
-                    {!loading && alerts
-                      ? alertsCountLabel(filteredAndSortedAlerts.length, alerts.length, alertTotal)
-                      : 'Loading alerts…'}
+                    {!loading
+                      ? activityCountLabel(
+                          filteredActivityRows.length,
+                          activityRows.length,
+                          activityTotal,
+                          usingPredictionRows
+                        )
+                      : 'Loading…'}
                   </span>
                   <div className="filter-controls">
                   <select onChange={(e) => setSeverityFilter(e.target.value)} value={severityFilter}>
@@ -414,7 +442,7 @@ export default function Dashboard() {
                     ))}
                   </select>
                   <select onChange={(e) => setAttackClassFilter(e.target.value)} value={attackClassFilter}>
-                    {ATTACK_CLASSES.map((cls) => (
+                    {classFilterOptions.map((cls) => (
                       <option key={cls} value={cls}>{cls}</option>
                     ))}
                   </select>
@@ -424,7 +452,7 @@ export default function Dashboard() {
               <div className="alerts-layout">
                 <div className="alerts-table-col">
                   {loading ? (
-                    <LoadingBlock label="Loading alerts" />
+                    <LoadingBlock label={usingPredictionRows ? 'Loading classifications' : 'Loading alerts'} />
                   ) : (
                     <div className="data-table-wrap alerts-table-wrap">
                       <table className="data-table">
@@ -436,9 +464,15 @@ export default function Dashboard() {
                             <th onClick={() => toggleSort('class')}>
                               Attack type {sortKey === 'class' && <span className="sort-arrow">{sortDir === 'asc' ? '▲' : '▼'}</span>}
                             </th>
-                            <th onClick={() => toggleSort('source_ip')}>
-                              Source IP {sortKey === 'source_ip' && <span className="sort-arrow">{sortDir === 'asc' ? '▲' : '▼'}</span>}
-                            </th>
+                            {usingPredictionRows ? (
+                              <th onClick={() => toggleSort('model')}>
+                                Model {sortKey === 'model' && <span className="sort-arrow">{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                              </th>
+                            ) : (
+                              <th onClick={() => toggleSort('source_ip')}>
+                                Source IP {sortKey === 'source_ip' && <span className="sort-arrow">{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                              </th>
+                            )}
                             <th onClick={() => toggleSort('confidence')}>
                               Confidence {sortKey === 'confidence' && <span className="sort-arrow">{sortDir === 'asc' ? '▲' : '▼'}</span>}
                             </th>
@@ -448,21 +482,35 @@ export default function Dashboard() {
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredAndSortedAlerts.map((a) => (
-                            <tr key={a.id}>
-                              <td><SeverityBadge level={a.severity} /></td>
-                              <td>{a.class}</td>
-                              <td className="num">{a.source_ip}</td>
-                              <td className="num">{(a.confidence * 100).toFixed(1)}%</td>
-                              <td className="num">{new Date(a.timestamp).toLocaleTimeString()}</td>
+                          {filteredActivityRows.map((row) => (
+                            <tr key={row.id}>
+                              <td><SeverityBadge level={row.severity} /></td>
+                              <td>{row.class}</td>
+                              <td className="num">
+                                {usingPredictionRows
+                                  ? (MODEL_LABELS[row.model] || row.model || '—').replace('_', ' ')
+                                  : row.source_ip}
+                              </td>
+                              <td className="num">{(row.confidence * 100).toFixed(1)}%</td>
+                              <td className="num">{new Date(row.timestamp).toLocaleTimeString()}</td>
                             </tr>
                           ))}
+                          {filteredActivityRows.length === 0 && (
+                            <tr>
+                              <td colSpan={5} className="alerts-empty-cell">
+                                No rows match the current filters.
+                                {attackClassFilter !== 'All' && usingPredictionRows && attackClassFilter !== 'Anomaly' && attackClassFilter !== 'Normal' && (
+                                  <span className="alerts-empty-hint"> Try Random Forest or XGBoost — K-Means only outputs Normal or Anomaly.</span>
+                                )}
+                              </td>
+                            </tr>
+                          )}
                         </tbody>
                       </table>
                     </div>
                   )}
                 </div>
-                {!loading && (alerts?.length > 0 || predictionRowTotal > 0) && (
+                {!loading && activityRows.length > 0 && (
                   <div className="severity-donut-col">
                     <div className="eyebrow severity-mix-title">Severity mix</div>
                     <div className="severity-mix-panel">
@@ -477,8 +525,8 @@ export default function Dashboard() {
                         ))}
                       </ul>
                       <p className="severity-mix-source">
-                        {chartUsesPredictions
-                          ? `From ${predictionRowTotal.toLocaleString()} stored prediction rows`
+                        {usingPredictionRows
+                          ? `Filtered view · ${activityTotal.toLocaleString()} rows in history`
                           : 'From loaded alerts'}
                       </p>
                     </div>
