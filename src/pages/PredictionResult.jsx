@@ -176,6 +176,55 @@ function RunSessionPanel({ run, isOpen, onToggle, onToast }) {
 
   );
 
+  const classLabels = useMemo(
+    () => (result?.summary?.class_counts ? Object.keys(result.summary.class_counts) : []),
+    [result]
+  );
+
+  const confidenceChart = useMemo(() => {
+    if (!result?.rows?.length || !classLabels.length) return null;
+
+    const traces = classLabels.map((cls) => {
+      const values = result.rows.filter((r) => r.predicted_class === cls).map((r) => r.confidence);
+      return {
+        type: 'box',
+        name: cls,
+        y: values,
+        marker: { color: SEVERITY_COLOR[cls] || ACCENT_BEACON },
+        line: { color: SEVERITY_COLOR[cls] || ACCENT_BEACON },
+        fillcolor: `${SEVERITY_COLOR[cls] || ACCENT_BEACON}33`,
+        boxpoints: values.length <= 60 ? 'all' : 'outliers',
+        jitter: 0.4,
+        pointpos: 0,
+        whiskerwidth: 0.6,
+        hovertemplate: `<b>${cls}</b><br>%{y:.2%}<extra></extra>`,
+      };
+    });
+
+    return (
+      <Plot
+        data={traces}
+        layout={plotlyDarkLayout({
+          height: 260,
+          showlegend: true,
+          legend: { orientation: 'h', y: 1.12, x: 0 },
+          margin: { t: 36, r: 16, b: 44, l: 48 },
+          yaxis: {
+            title: 'Confidence',
+            tickformat: '.0%',
+            range: [0, 1.02],
+            gridcolor: '#232C36',
+            zeroline: false,
+          },
+          xaxis: { showticklabels: false, showgrid: false },
+        })}
+        config={plotlyConfig}
+        style={{ width: '100%' }}
+        useResizeHandler
+      />
+    );
+  }, [result, classLabels]);
+
 
 
   function toggleSort(key) {
@@ -236,8 +285,6 @@ function RunSessionPanel({ run, isOpen, onToggle, onToast }) {
 
   const classCounts = result.summary.class_counts;
 
-  const classLabels = Object.keys(classCounts);
-
 
 
   const summaryDonut = (
@@ -271,52 +318,6 @@ function RunSessionPanel({ run, isOpen, onToggle, onToast }) {
       config={{ ...plotlyConfig, displayModeBar: false }}
 
       style={{ width: 140, height: 160 }}
-
-    />
-
-  );
-
-
-
-  const confidenceHistogram = (
-
-    <Plot
-
-      data={classLabels.map((cls) => ({
-
-        x: result.rows.filter((r) => r.predicted_class === cls).map((r) => r.confidence),
-
-        type: 'histogram',
-
-        name: cls,
-
-        opacity: 0.75,
-
-        marker: { color: SEVERITY_COLOR[cls] || ACCENT_BEACON },
-
-        xbins: { start: 0, end: 1, size: 0.1 },
-
-      }))}
-
-      layout={plotlyDarkLayout({
-
-        height: 240,
-
-        barmode: 'overlay',
-
-        margin: { t: 10, r: 20, b: 40, l: 44 },
-
-        xaxis: { title: 'Confidence', tickformat: '.0%', range: [0, 1] },
-
-        yaxis: { title: 'Rows', gridcolor: '#232C36' },
-
-      })}
-
-      config={plotlyConfig}
-
-      style={{ width: '100%' }}
-
-      useResizeHandler
 
     />
 
@@ -462,13 +463,13 @@ function RunSessionPanel({ run, isOpen, onToggle, onToast }) {
 
             <div className="section-title">
 
-              <span>Confidence distribution by predicted class</span>
+              <span>Confidence by predicted class</span>
 
-              <span className="eyebrow">Low-confidence peaks = uncertain predictions</span>
+              <span className="eyebrow">Box plot per class — points show individual rows</span>
 
             </div>
 
-            {confidenceHistogram}
+            {confidenceChart}
 
           </div>
 

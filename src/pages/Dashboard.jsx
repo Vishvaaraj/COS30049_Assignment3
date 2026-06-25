@@ -288,31 +288,48 @@ export default function Dashboard() {
       ? (inferenceLatencyHistory.reduce((a, b) => a + b, 0) / inferenceLatencyHistory.length).toFixed(1)
       : null;
 
-  const barChart = datasetStats && (
+  const barChartData = useMemo(() => {
+    if (!datasetStats) return null;
+    const labels = Object.keys(datasetStats.class_distribution);
+    return [
+      {
+        x: labels,
+        y: labels.map((k) => datasetStats.class_distribution[k]),
+        type: 'bar',
+        marker: { color: labels.map((k) => SEVERITY_COLOR[k] || ACCENT_SONAR) },
+        hovertemplate: '<b>%{x}</b><br>%{y:,} flows<extra></extra>',
+      },
+    ];
+  }, [datasetStats]);
+
+  const barChartLayout = useMemo(() => {
+    if (!datasetStats) return null;
+    const values = Object.values(datasetStats.class_distribution);
+    const maxY = Math.max(...values, 1);
+    return plotlyDarkLayout({
+      height: 300,
+      uirevision: 'dataset-class-dist',
+      margin: { t: 8, r: 12, b: 44, l: 52 },
+      bargap: 0.28,
+      yaxis: {
+        title: { text: 'Flow count', standoff: 8 },
+        gridcolor: '#232C36',
+        automargin: true,
+        range: [0, Math.ceil(maxY * 1.08)],
+        fixedrange: true,
+      },
+      xaxis: { automargin: true, categoryorder: 'array', categoryarray: Object.keys(datasetStats.class_distribution) },
+    });
+  }, [datasetStats]);
+
+  const barChart = barChartData && barChartLayout && (
     <Plot
-      data={[
-        {
-          x: Object.keys(datasetStats.class_distribution),
-          y: Object.values(datasetStats.class_distribution),
-          type: 'bar',
-          marker: { color: Object.keys(datasetStats.class_distribution).map((k) => SEVERITY_COLOR[k] || ACCENT_SONAR) },
-          hovertemplate: '<b>%{x}</b><br>%{y:,} flows<extra></extra>',
-        },
-      ]}
-      layout={plotlyDarkLayout({
-        height: 300,
-        margin: { t: 8, r: 12, b: 44, l: 52 },
-        bargap: 0.28,
-        yaxis: {
-          title: { text: 'Flow count', standoff: 8 },
-          gridcolor: '#232C36',
-          automargin: true,
-        },
-        xaxis: { automargin: true },
-      })}
+      key="traffic-class-distribution"
+      data={barChartData}
+      layout={barChartLayout}
       config={{ ...plotlyConfig, displayModeBar: false }}
-      style={{ width: '100%', height: 300 }}
-      useResizeHandler
+      style={{ width: '100%', height: '100%' }}
+      useResizeHandler={false}
     />
   );
 
