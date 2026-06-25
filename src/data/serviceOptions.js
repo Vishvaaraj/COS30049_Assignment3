@@ -1,4 +1,3 @@
-// Distinct `service` values from the NSL-KDD training corpus (66 values).
 export const SERVICE_OPTIONS = [
   'aol', 'auth', 'bgp', 'courier', 'csnet_ns', 'ctf', 'daytime', 'discard',
   'domain', 'domain_u', 'echo', 'eco_i', 'ecr_i', 'efs', 'exec', 'finger',

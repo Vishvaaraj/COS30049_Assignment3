@@ -1,8 +1,3 @@
-// Validation specs for the 9 NSL-KDD features used by this project
-// (duration, protocol_type, service, flag, src_bytes, dst_bytes, count,
-// srv_count, serror_rate). Centralised here so the same rules can be
-// reused if a second form ever needs them.
-
 import { SERVICE_OPTIONS } from './serviceOptions';
 
 export const PROTOCOL_OPTIONS = ['tcp', 'udp', 'icmp'];

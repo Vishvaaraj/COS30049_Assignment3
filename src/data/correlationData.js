@@ -1,9 +1,3 @@
-// Real values from A2 report — static because no backend
-// endpoint exists for this yet, NOT mock/placeholder data. Do not delete.
-// Transcribed directly from the Assignment 2 report (Figures 2a and 2b)
-// so the heatmap shows real values rather than placeholders, until the
-// backend serves this via an endpoint of its own.
-
 export const CORRELATION_FEATURES = [
   'duration',
   'protocol_type',

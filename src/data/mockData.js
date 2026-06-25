@@ -1,6 +1,3 @@
-// Mock data shaped EXACTLY like the real API contract agreed with backend.
-// Swap is controlled by VITE_USE_MOCK in .env — see src/api/client.js.
-
 import { CLASSES, FEATURES } from './constants.js';
 import { resolveRowSeverity } from '../utils/severity';
 
