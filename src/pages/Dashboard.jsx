@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import Plot from '../charts/Plot.jsx';
 import { fetchDatasetStats, fetchModelStats, fetchAlerts } from '../api/client';
 import { usePrediction } from '../state/PredictionContext.jsx';
@@ -75,6 +75,79 @@ function pushHistory(key, value) {
     /* ignore */
   }
   return hist;
+}
+
+function DistributionBarChart({ datasetStats }) {
+  const containerRef = useRef(null);
+  const [chartHeight, setChartHeight] = useState(280);
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return undefined;
+
+    const updateHeight = () => {
+      const next = Math.round(node.getBoundingClientRect().height);
+      if (next > 0) setChartHeight(Math.max(200, next));
+    };
+
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  const barChartData = useMemo(() => {
+    if (!datasetStats) return null;
+    const labels = Object.keys(datasetStats.class_distribution);
+    return [
+      {
+        x: labels,
+        y: labels.map((k) => datasetStats.class_distribution[k]),
+        type: 'bar',
+        marker: { color: labels.map((k) => SEVERITY_COLOR[k] || ACCENT_SONAR) },
+        hovertemplate: '<b>%{x}</b><br>%{y:,} flows<extra></extra>',
+      },
+    ];
+  }, [datasetStats]);
+
+  const barChartLayout = useMemo(() => {
+    if (!datasetStats) return null;
+    const values = Object.values(datasetStats.class_distribution);
+    const maxY = Math.max(...values, 1);
+    return plotlyDarkLayout({
+      height: chartHeight,
+      autosize: false,
+      uirevision: 'dataset-class-dist',
+      margin: { t: 8, r: 12, b: 36, l: 52 },
+      bargap: 0.28,
+      yaxis: {
+        title: { text: 'Flow count', standoff: 8 },
+        gridcolor: '#232C36',
+        automargin: true,
+        range: [0, Math.ceil(maxY * 1.08)],
+        fixedrange: true,
+      },
+      xaxis: {
+        automargin: true,
+        categoryorder: 'array',
+        categoryarray: Object.keys(datasetStats.class_distribution),
+      },
+    });
+  }, [datasetStats, chartHeight]);
+
+  if (!barChartData || !barChartLayout) return null;
+
+  return (
+    <div ref={containerRef} className="distribution-chart-inner">
+      <Plot
+        data={barChartData}
+        layout={barChartLayout}
+        config={{ ...plotlyConfig, displayModeBar: false }}
+        style={{ width: '100%', height: chartHeight }}
+        useResizeHandler
+      />
+    </div>
+  );
 }
 
 export default function Dashboard() {
@@ -288,52 +361,6 @@ export default function Dashboard() {
       ? (inferenceLatencyHistory.reduce((a, b) => a + b, 0) / inferenceLatencyHistory.length).toFixed(1)
       : null;
 
-  const barChartData = useMemo(() => {
-    if (!datasetStats) return null;
-    const labels = Object.keys(datasetStats.class_distribution);
-    return [
-      {
-        x: labels,
-        y: labels.map((k) => datasetStats.class_distribution[k]),
-        type: 'bar',
-        marker: { color: labels.map((k) => SEVERITY_COLOR[k] || ACCENT_SONAR) },
-        hovertemplate: '<b>%{x}</b><br>%{y:,} flows<extra></extra>',
-      },
-    ];
-  }, [datasetStats]);
-
-  const barChartLayout = useMemo(() => {
-    if (!datasetStats) return null;
-    const values = Object.values(datasetStats.class_distribution);
-    const maxY = Math.max(...values, 1);
-    return plotlyDarkLayout({
-      height: 280,
-      autosize: false,
-      uirevision: 'dataset-class-dist',
-      margin: { t: 8, r: 12, b: 36, l: 52 },
-      bargap: 0.28,
-      yaxis: {
-        title: { text: 'Flow count', standoff: 8 },
-        gridcolor: '#232C36',
-        automargin: true,
-        range: [0, Math.ceil(maxY * 1.08)],
-        fixedrange: true,
-      },
-      xaxis: { automargin: true, categoryorder: 'array', categoryarray: Object.keys(datasetStats.class_distribution) },
-    });
-  }, [datasetStats]);
-
-  const barChart = barChartData && barChartLayout && (
-    <Plot
-      key="traffic-class-distribution"
-      data={barChartData}
-      layout={barChartLayout}
-      config={{ ...plotlyConfig, displayModeBar: false }}
-      style={{ width: '100%', height: 280 }}
-      useResizeHandler={false}
-    />
-  );
-
   const severityDonut = severityPieLabels.length > 0 && (
     <Plot
       data={[
@@ -452,7 +479,7 @@ export default function Dashboard() {
                 <span className="eyebrow">Hover for exact counts</span>
               </div>
               <div className="distribution-chart-wrap">
-                {loading ? <LoadingBlock label="Loading distribution" /> : barChart}
+                {loading ? <LoadingBlock label="Loading distribution" /> : <DistributionBarChart datasetStats={datasetStats} />}
               </div>
             </div>
 
