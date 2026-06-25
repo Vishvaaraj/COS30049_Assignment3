@@ -307,9 +307,10 @@ export default function Dashboard() {
     const values = Object.values(datasetStats.class_distribution);
     const maxY = Math.max(...values, 1);
     return plotlyDarkLayout({
-      height: 300,
+      height: 280,
+      autosize: false,
       uirevision: 'dataset-class-dist',
-      margin: { t: 8, r: 12, b: 44, l: 52 },
+      margin: { t: 8, r: 12, b: 36, l: 52 },
       bargap: 0.28,
       yaxis: {
         title: { text: 'Flow count', standoff: 8 },
@@ -328,7 +329,7 @@ export default function Dashboard() {
       data={barChartData}
       layout={barChartLayout}
       config={{ ...plotlyConfig, displayModeBar: false }}
-      style={{ width: '100%', height: '100%' }}
+      style={{ width: '100%', height: 280 }}
       useResizeHandler={false}
     />
   );

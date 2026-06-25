@@ -78,31 +78,24 @@
 }
 
 .distribution-card {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+  align-self: start;
+  height: auto;
 }
 
 .distribution-chart-wrap {
-  flex: 1;
   width: 100%;
-  min-height: 300px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  height: 280px;
   overflow: hidden;
+  line-height: 0;
 }
 
-.distribution-chart-wrap > .js-plotly-plot,
-.distribution-chart-wrap > div {
-  width: 100% !important;
-  height: 300px !important;
-  max-height: 300px;
+.distribution-chart-wrap .js-plotly-plot,
+.distribution-chart-wrap .plot-container {
+  height: 280px !important;
 }
 
 .distribution-chart-wrap .status-block {
-  width: 100%;
-  min-height: 300px;
+  height: 280px;
   display: flex;
   align-items: center;
   justify-content: center;
