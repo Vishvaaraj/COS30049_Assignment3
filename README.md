@@ -1,4 +1,4 @@
-# NetGuard — Network Traffic Analysis
+# NetGuard
 
 **COS30049 Assignment 3 · Group 14**
 
