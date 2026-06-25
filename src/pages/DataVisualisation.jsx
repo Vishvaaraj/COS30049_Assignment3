@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Plot from '../charts/Plot.jsx';
 import { fetchDatasetStats, fetchModelStats } from '../api/client';
-import { usePrediction } from '../state/PredictionContext.jsx';
 import { LoadingBlock, ErrorBanner } from '../components/Feedback.jsx';
 import { plotlyDarkLayout, plotlyConfig, SEVERITY_COLOR, ACCENT_BEACON, ACCENT_SONAR } from '../charts/plotlyTheme';
 import { CORRELATION_FEATURES, CORRELATION_NSL_KDD, CORRELATION_PRIMARY } from '../data/correlationData';
@@ -10,8 +9,6 @@ import './DataVisualisation.css';
 const METRICS = ['precision', 'recall', 'f1'];
 
 export default function DataVisualisation() {
-  const { runs, selectedRunId } = usePrediction();
-
   const [datasetStats, setDatasetStats] = useState(null);
   const [rfStats, setRfStats] = useState(null);
   const [xgbStats, setXgbStats] = useState(null);
@@ -51,18 +48,6 @@ export default function DataVisualisation() {
 
   const classes = datasetStats ? Object.keys(datasetStats.class_distribution) : [];
   const metricClasses = ['All', ...classes];
-
-  const expectedSupport = useMemo(() => {
-    if (!rfStats) return null;
-    const support = {};
-    classes.forEach((c) => {
-      support[c] = rfStats.per_class[c]?.support ?? 0;
-    });
-    return support;
-  }, [rfStats, classes]);
-
-  const comparedRun = runs.find((r) => r.id === selectedRunId) ?? runs[0] ?? null;
-  const liveClassCounts = comparedRun?.result?.summary?.class_counts ?? null;
 
   const donutChart = datasetStats && (
     <Plot
@@ -161,38 +146,6 @@ export default function DataVisualisation() {
         barmode: 'group',
         margin: { t: 10, r: 30, b: 30, l: 100 },
         yaxis: { automargin: true },
-      })}
-      config={plotlyConfig}
-      style={{ width: '100%' }}
-      useResizeHandler
-    />
-  );
-
-  const distributionCompareChart = expectedSupport && liveClassCounts && (
-    <Plot
-      data={[
-        {
-          x: classes,
-          y: classes.map((c) => expectedSupport[c] ?? 0),
-          type: 'bar',
-          name: 'Training support (expected)',
-          marker: { color: ACCENT_SONAR },
-          hovertemplate: '<b>%{x}</b><br>Training support: %{y:,}<extra></extra>',
-        },
-        {
-          x: classes,
-          y: classes.map((c) => liveClassCounts[c] ?? 0),
-          type: 'bar',
-          name: 'Last batch (live)',
-          marker: { color: ACCENT_BEACON },
-          hovertemplate: '<b>%{x}</b><br>Live batch: %{y:,}<extra></extra>',
-        },
-      ]}
-      layout={plotlyDarkLayout({
-        height: 300,
-        barmode: 'group',
-        margin: { t: 10, r: 10, b: 36, l: 50 },
-        yaxis: { title: 'Row count', gridcolor: '#232C36' },
       })}
       config={plotlyConfig}
       style={{ width: '100%' }}
@@ -356,22 +309,6 @@ export default function DataVisualisation() {
               {loading ? <LoadingBlock label="Loading K-Means stats" /> : kmChart}
             </div>
           </div>
-
-          {liveClassCounts && expectedSupport && (
-            <div className="card card-pad" style={{ marginTop: 18 }}>
-              <div className="section-title">
-                <span>Expected distribution vs. last batch</span>
-                <span className="eyebrow">Training support vs. live class_counts — not a confusion matrix</span>
-              </div>
-              {distributionCompareChart}
-            </div>
-          )}
-
-          {!liveClassCounts && (
-            <div className="card card-pad distribution-hint" style={{ marginTop: 18 }}>
-              <p>Run a classification on Analyse Traffic to compare your batch&apos;s class_counts against training support.</p>
-            </div>
-          )}
 
           <div className="card card-pad" style={{ marginTop: 18 }}>
             <div className="section-title">
