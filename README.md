@@ -57,20 +57,6 @@ NetGuard lets analysts upload traffic data, run ML classification, and review re
 
 ---
 
-## Repository structure
-
-```
-assign3/                    # React frontend (Vite)
-├── src/                    # Pages, components, API client
-├── vercel.json             # SPA routing for Vercel
-└── COS30049-GP14-Assign3/  # FastAPI backend (Hugging Face Space)
-    ├── app/                # main.py, ml.py, supabase_client.py
-    ├── ml_artifacts/       # Trained models and dataset
-    └── supabase/           # SQL schemas for prediction_runs, activity_logs
-```
-
----
-
 ## Tech stack
 
 | Layer | Technologies |
