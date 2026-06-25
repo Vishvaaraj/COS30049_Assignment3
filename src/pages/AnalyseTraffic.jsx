@@ -312,25 +312,6 @@ export default function AnalyseTraffic() {
               })}
             </div>
           </div>
-
-          {recentRuns.length > 0 && (
-            <div className="card card-pad recent-runs">
-              <div className="section-title">
-                <span>Recent test runs</span>
-                <span className="eyebrow">Stored in Supabase</span>
-              </div>
-              <ul className="recent-runs-list">
-                {recentRuns.map((run) => (
-                  <li key={run.id ?? run.timestamp + run.fileName}>
-                    <span className="num recent-run-time">{new Date(run.timestamp).toLocaleString()}</span>
-                    <span className="recent-run-detail">
-                      {run.fileName} · {run.rowCount} rows · {run.model.replace('_', ' ')} · top: {run.topClass}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
       </div>
 
@@ -340,6 +321,25 @@ export default function AnalyseTraffic() {
           onSettingsChange={setSynthSettings}
           onLoadFile={loadFileIntoUploader}
         />
+
+        {recentRuns.length > 0 && (
+          <div className="card card-pad recent-runs">
+            <div className="section-title">
+              <span>Recent test runs</span>
+              <span className="eyebrow">Stored in Supabase</span>
+            </div>
+            <ul className="recent-runs-list">
+              {recentRuns.map((run) => (
+                <li key={run.id ?? run.timestamp + run.fileName}>
+                  <span className="num recent-run-time">{new Date(run.timestamp).toLocaleString()}</span>
+                  <span className="recent-run-detail">
+                    {run.fileName} · {run.rowCount} rows · {run.model.replace('_', ' ')} · top: {run.topClass}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {submitError && (

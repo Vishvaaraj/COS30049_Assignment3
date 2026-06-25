@@ -681,7 +681,8 @@ export default function PredictionResult() {
 
   const navigate = useNavigate();
 
-  const { runs, runsLoading, runsError, clearRunHistory, refreshRuns } = usePrediction();
+  const { runs, runsLoading, runsError, clearRunHistory, refreshRuns, expandLatestRunOnResult, clearExpandLatestRun } =
+    usePrediction();
 
 
 
@@ -694,6 +695,12 @@ export default function PredictionResult() {
 
 
   useEffect(() => {
+    return () => clearExpandLatestRun();
+  }, [clearExpandLatestRun]);
+
+
+
+  useEffect(() => {
 
     if (runs.length === 0) return;
 
@@ -701,15 +708,21 @@ export default function PredictionResult() {
 
       const valid = new Set(runs.map((r) => r.id));
 
-      const kept = new Set([...prev].filter((id) => valid.has(id)));
-
-      if (kept.size === 0) kept.add(runs[0].id);
-
-      return kept;
+      return new Set([...prev].filter((id) => valid.has(id)));
 
     });
 
   }, [runs]);
+
+
+
+  useEffect(() => {
+
+    if (!expandLatestRunOnResult || runs.length === 0) return;
+
+    setExpandedRunIds(new Set([runs[0].id]));
+
+  }, [expandLatestRunOnResult, runs]);
 
 
 

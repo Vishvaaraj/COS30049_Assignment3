@@ -46,6 +46,11 @@ export function PredictionProvider({ children }) {
   const [runsLoading, setRunsLoading] = useState(true);
   const [runsError, setRunsError] = useState(null);
   const [inferenceLatencyHistory, setInferenceLatencyHistory] = useState(loadLatency);
+  const [expandLatestRunOnResult, setExpandLatestRunOnResult] = useState(false);
+
+  const clearExpandLatestRun = useCallback(() => {
+    setExpandLatestRunOnResult(false);
+  }, []);
 
   const selectedRun = useMemo(
     () => runs.find((r) => r.id === selectedRunId) ?? runs[0] ?? null,
@@ -89,6 +94,7 @@ export function PredictionProvider({ children }) {
       const avgMs =
         result.rows.length > 0 ? result.rows.reduce((s, r) => s + r.inference_time_ms, 0) / result.rows.length : 0;
       const optimistic = buildLocalRun({ fileName: name, inputCsv, result });
+      setExpandLatestRunOnResult(true);
       setRuns((prev) => [optimistic, ...prev.filter((r) => r.id !== optimistic.id)].slice(0, 30));
       setSelectedRunId(optimistic.id);
 
@@ -141,6 +147,8 @@ export function PredictionProvider({ children }) {
         refreshRuns,
         runsLoading,
         runsError,
+        expandLatestRunOnResult,
+        clearExpandLatestRun,
         inferenceLatencyHistory,
       }}
     >
