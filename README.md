@@ -81,4 +81,3 @@ assign3/                    # React frontend (Vite)
 | Deploy | Vercel (frontend), Hugging Face Spaces (backend) |
 
 ---
-Swinburne University of Technology
