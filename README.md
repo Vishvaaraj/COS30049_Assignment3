@@ -81,34 +81,4 @@ assign3/                    # React frontend (Vite)
 | Deploy | Vercel (frontend), Hugging Face Spaces (backend) |
 
 ---
-
-## Local development
-
-### Frontend
-
-```bash
-npm install
-cp .env.example .env
-npm run dev
-```
-
-Set in `.env`:
-
-```env
-VITE_API_BASE_URL=https://vishvaaraj-cos30049-gp14-assign3.hf.space
-VITE_USE_MOCK=false
-VITE_HF_SPACE_URL=https://huggingface.co/spaces/Vishvaaraj/COS30049-GP14-Assign3
-```
-
-Use `VITE_USE_MOCK=true` to run the UI without a backend.
-
-### Backend
-
-See `COS30049-GP14-Assign3/` — run with uvicorn on port 7860. Requires `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` for persistence.
-
----
-
-## Course
-
-**COS30049** — Cyber Security Analytics  
 Swinburne University of Technology
