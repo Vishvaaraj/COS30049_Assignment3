@@ -179,7 +179,7 @@ export default function AnalyseTraffic() {
       </div>
 
       <div className="analyse-grid">
-        <div className="card card-pad">
+        <div className="card card-pad analyse-input-card">
           <div className="mode-tabs" role="tablist">
             <button
               role="tab"
@@ -201,6 +201,7 @@ export default function AnalyseTraffic() {
             </button>
           </div>
 
+          <div className="analyse-mode-body">
           {mode === 'upload' ? (
             <FileUploadZone
               key={uploadKey}
@@ -263,6 +264,7 @@ export default function AnalyseTraffic() {
               </div>
             </>
           )}
+          </div>
 
           <div className="glossary-strip">
             <button
@@ -401,7 +403,7 @@ function FileUploadZone({ file, fileError, fileSummary, onDropFile, onReject, on
   });
 
   return (
-    <div>
+    <div className="upload-mode-wrap">
       <div
         {...getRootProps()}
         className={`dropzone ${isDragActive ? 'dropzone-active' : ''} ${fileError ? 'dropzone-error' : ''}`}

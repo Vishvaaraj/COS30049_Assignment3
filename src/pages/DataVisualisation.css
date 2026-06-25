@@ -55,7 +55,34 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
+}
+
+.viz-pair-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.viz-chart-slot {
+  flex: 1;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+}
+
+.viz-chart-slot .status-block {
+  flex: 1;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viz-chart-slot .js-plotly-plot,
+.viz-chart-slot .plot-container {
+  width: 100% !important;
+  height: 320px !important;
 }
 
 @media (max-width: 1100px) {

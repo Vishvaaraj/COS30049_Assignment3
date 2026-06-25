@@ -7,6 +7,7 @@ import { CORRELATION_FEATURES, CORRELATION_NSL_KDD, CORRELATION_PRIMARY } from '
 import './DataVisualisation.css';
 
 const METRICS = ['precision', 'recall', 'f1'];
+const PAIR_CHART_HEIGHT = 320;
 
 export default function DataVisualisation() {
   const [datasetStats, setDatasetStats] = useState(null);
@@ -63,9 +64,9 @@ export default function DataVisualisation() {
           pull: classes.map((c) => (c === filterClass ? 0.06 : 0)),
         },
       ]}
-      layout={plotlyDarkLayout({ height: 300, margin: { t: 10, r: 10, b: 10, l: 10 }, showlegend: true })}
+      layout={plotlyDarkLayout({ height: PAIR_CHART_HEIGHT, margin: { t: 10, r: 10, b: 10, l: 10 }, showlegend: true })}
       config={plotlyConfig}
-      style={{ width: '100%' }}
+      style={{ width: '100%', height: PAIR_CHART_HEIGHT }}
       useResizeHandler
       onClick={(e) => {
         const label = e.points?.[0]?.label;
@@ -104,13 +105,13 @@ export default function DataVisualisation() {
         },
       ]}
       layout={plotlyDarkLayout({
-        height: 320,
+        height: PAIR_CHART_HEIGHT,
         barmode: 'group',
         margin: { t: 10, r: 10, b: 36, l: 44 },
         yaxis: { title: metricLabel, range: [0, 1.05], gridcolor: '#232C36' },
       })}
       config={plotlyConfig}
-      style={{ width: '100%' }}
+      style={{ width: '100%', height: PAIR_CHART_HEIGHT }}
       useResizeHandler
     />
   );
@@ -142,13 +143,13 @@ export default function DataVisualisation() {
         },
       ]}
       layout={plotlyDarkLayout({
-        height: 320,
+        height: PAIR_CHART_HEIGHT,
         barmode: 'group',
         margin: { t: 10, r: 30, b: 30, l: 100 },
         yaxis: { automargin: true },
       })}
       config={plotlyConfig}
-      style={{ width: '100%' }}
+      style={{ width: '100%', height: PAIR_CHART_HEIGHT }}
       useResizeHandler
     />
   );
@@ -166,13 +167,13 @@ export default function DataVisualisation() {
         hovertemplate: `<b>%{x}</b><br>${m}: %{y:.2f}<extra></extra>`,
       }))}
       layout={plotlyDarkLayout({
-        height: 260,
+        height: PAIR_CHART_HEIGHT,
         barmode: 'group',
         margin: { t: 10, r: 10, b: 36, l: 44 },
         yaxis: { title: 'Score', range: [0, 1.05], gridcolor: '#232C36' },
       })}
       config={plotlyConfig}
-      style={{ width: '100%' }}
+      style={{ width: '100%', height: PAIR_CHART_HEIGHT }}
       useResizeHandler
     />
   );
@@ -251,12 +252,14 @@ export default function DataVisualisation() {
           </div>
 
           <div className="viz-grid">
-            <div className="card card-pad">
+            <div className="card card-pad viz-pair-card">
               <div className="section-title">
                 <span>Dataset class distribution</span>
                 <span className="eyebrow">Click a slice to filter</span>
               </div>
-              {loading ? <LoadingBlock label="Loading distribution" /> : donutChart}
+              <div className="viz-chart-slot">
+                {loading ? <LoadingBlock label="Loading distribution" /> : donutChart}
+              </div>
               {filterClass && (
                 <div className="filter-chip-row">
                   <span className="filter-chip">
@@ -267,7 +270,7 @@ export default function DataVisualisation() {
               )}
             </div>
 
-            <div className="card card-pad">
+            <div className="card card-pad viz-pair-card">
               <div className="section-title">
                 <span>Per-class {metricLabel} — RF vs XGBoost</span>
                 <div className="filter-controls">
@@ -289,24 +292,30 @@ export default function DataVisualisation() {
                   </select>
                 </div>
               </div>
-              {loading ? <LoadingBlock label="Loading model comparison" /> : perClassChart}
+              <div className="viz-chart-slot">
+                {loading ? <LoadingBlock label="Loading model comparison" /> : perClassChart}
+              </div>
             </div>
           </div>
 
           <div className="viz-grid" style={{ marginTop: 18 }}>
-            <div className="card card-pad">
+            <div className="card card-pad viz-pair-card">
               <div className="section-title">
                 <span>Feature importance — RF vs XGBoost</span>
               </div>
-              {loading ? <LoadingBlock label="Loading importance" /> : importanceChart}
+              <div className="viz-chart-slot">
+                {loading ? <LoadingBlock label="Loading importance" /> : importanceChart}
+              </div>
             </div>
 
-            <div className="card card-pad">
+            <div className="card card-pad viz-pair-card">
               <div className="section-title">
                 <span>K-Means — Normal vs Anomaly</span>
                 <span className="eyebrow">Precision · Recall · F1</span>
               </div>
-              {loading ? <LoadingBlock label="Loading K-Means stats" /> : kmChart}
+              <div className="viz-chart-slot">
+                {loading ? <LoadingBlock label="Loading K-Means stats" /> : kmChart}
+              </div>
             </div>
           </div>
 

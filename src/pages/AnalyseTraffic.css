@@ -28,11 +28,39 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   text-align: center;
   cursor: pointer;
   color: var(--text-muted);
   transition: border-color 0.15s ease, background 0.15s ease;
+  flex: 1;
+  min-height: 300px;
+}
+
+.analyse-input-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.analyse-mode-body {
+  flex: 1;
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+}
+
+.upload-mode-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.file-summary-row {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 .dropzone:hover,
 .dropzone-active {
@@ -61,9 +89,11 @@
 
 .manual-toolbar {
   margin-bottom: 14px;
+  flex-shrink: 0;
 }
 
 .feature-grid {
+  flex: 1;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
