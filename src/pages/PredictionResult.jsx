@@ -8,11 +8,11 @@ import { usePrediction } from '../state/PredictionContext.jsx';
 
 import SeverityBadge from '../components/SeverityBadge.jsx';
 
-import { EmptyState, LoadingBlock } from '../components/Feedback.jsx';
+import { EmptyState, LoadingBlock, ErrorBanner } from '../components/Feedback.jsx';
 
 import { downloadTextFile, buildOutputCsv } from '../utils/predictionCsv';
 
-import { resolveRowSeverity } from '../utils/severity';
+import { resolveRowSeverity, compareSeverity } from '../utils/severity';
 
 import { plotlyDarkLayout, plotlyConfig, SEVERITY_COLOR, ACCENT_BEACON } from '../charts/plotlyTheme';
 
@@ -151,17 +151,15 @@ function RunSessionPanel({ run, isOpen, onToggle, onToast }) {
     const rows = [...displayRows];
 
     rows.sort((a, b) => {
-
       const av = a[sortKey];
-
       const bv = b[sortKey];
-
+      if (sortKey === 'severity') {
+        const diff = compareSeverity(av, bv);
+        return sortDir === 'asc' ? diff : -diff;
+      }
       if (av < bv) return sortDir === 'asc' ? -1 : 1;
-
       if (av > bv) return sortDir === 'asc' ? 1 : -1;
-
       return 0;
-
     });
 
     return rows;
@@ -188,7 +186,7 @@ function RunSessionPanel({ run, isOpen, onToggle, onToast }) {
 
       setSortKey(key);
 
-      setSortDir('asc');
+      setSortDir(key === 'severity' ? 'asc' : 'desc');
 
     }
 
@@ -682,7 +680,7 @@ export default function PredictionResult() {
 
   const navigate = useNavigate();
 
-  const { runs, runsLoading, clearRunHistory } = usePrediction();
+  const { runs, runsLoading, runsError, clearRunHistory, refreshRuns } = usePrediction();
 
 
 
@@ -771,6 +769,28 @@ export default function PredictionResult() {
         </div>
 
         <LoadingBlock label="Loading prediction history from Supabase" />
+
+      </div>
+
+    );
+
+  }
+
+
+
+  if (runsError && runs.length === 0) {
+
+    return (
+
+      <div className="page-result">
+
+        <div className="page-header">
+
+          <h2>Prediction Result</h2>
+
+        </div>
+
+        <ErrorBanner message={runsError} onRetry={refreshRuns} />
 
       </div>
 

@@ -1,7 +1,8 @@
 // Mock data shaped EXACTLY like the real API contract agreed with backend.
 // Swap is controlled by VITE_USE_MOCK in .env — see src/api/client.js.
 
-import { FEATURES, CLASSES } from './constants.js';
+import { CLASSES, FEATURES } from './constants.js';
+import { resolveRowSeverity } from '../utils/severity';
 
 export { FEATURES, CLASSES };
 
@@ -217,19 +218,24 @@ export function generateMockSyntheticRow(mix = 'realistic', jitter = 0.08) {
 
 // ---- POST /predict (whole CSV -> one result per row) ----------------------
 export function generateMockPredictionResults(rowCount = 12, model = 'random_forest') {
+  const classPool = model === 'kmeans' ? ['Normal', 'Anomaly'] : CLASSES;
   const rows = Array.from({ length: rowCount }).map((_, i) => {
-    const cls = CLASSES[Math.floor(Math.random() * CLASSES.length)];
-    const confidence = Math.round((0.6 + Math.random() * 0.39) * 1000) / 1000;
-    const remaining = 1 - confidence;
+    const cls = classPool[Math.floor(Math.random() * classPool.length)];
+    const confidence = Math.round((0.3 + Math.random() * 0.69) * 1000) / 1000;
     const probabilities = {};
-    let remainder = remaining;
-    CLASSES.filter((c) => c !== cls).forEach((c, idx, arr) => {
-      const isLast = idx === arr.length - 1;
-      const share = isLast ? remainder : Math.random() * remainder;
-      probabilities[c] = Math.round(share * 1000) / 1000;
-      remainder -= share;
-    });
-    probabilities[cls] = confidence;
+    if (model === 'kmeans') {
+      probabilities.Normal = cls === 'Normal' ? confidence : 1 - confidence;
+      probabilities.Anomaly = cls === 'Anomaly' ? confidence : 1 - confidence;
+    } else {
+      let remainder = 1 - confidence;
+      CLASSES.filter((c) => c !== cls).forEach((c, idx, arr) => {
+        const isLast = idx === arr.length - 1;
+        const share = isLast ? remainder : Math.random() * remainder;
+        probabilities[c] = Math.round(share * 1000) / 1000;
+        remainder -= share;
+      });
+      probabilities[cls] = confidence;
+    }
 
     const features = generateMockSyntheticRow('realistic', 0.05);
     const warnings =
@@ -237,7 +243,7 @@ export function generateMockPredictionResults(rowCount = 12, model = 'random_for
         ? ["Unseen value 'unknown_svc' in column 'service' was replaced with fallback 'other'."]
         : undefined;
 
-    return {
+    const row = {
       row_id: i,
       predicted_class: cls,
       confidence,
@@ -250,9 +256,12 @@ export function generateMockPredictionResults(rowCount = 12, model = 'random_for
       ),
       ...(warnings ? { warnings } : {}),
     };
+    row.severity = resolveRowSeverity(row, model);
+
+    return row;
   });
 
-  const class_counts = CLASSES.reduce((acc, c) => {
+  const class_counts = classPool.reduce((acc, c) => {
     acc[c] = rows.filter((r) => r.predicted_class === c).length;
     return acc;
   }, {});

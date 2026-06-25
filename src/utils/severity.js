@@ -5,6 +5,16 @@ export function normalizeSeverity(value) {
   return map[key] || value;
 }
 
+export const SEVERITY_DISPLAY_ORDER = ['Low', 'Medium', 'High', 'Critical'];
+
+const SEVERITY_RANK = Object.fromEntries(SEVERITY_DISPLAY_ORDER.map((level, index) => [level, index]));
+
+export function compareSeverity(a, b) {
+  const av = SEVERITY_RANK[normalizeSeverity(a)] ?? 99;
+  const bv = SEVERITY_RANK[normalizeSeverity(b)] ?? 99;
+  return av - bv;
+}
+
 export function severityFromKmeans(predictedClass, confidence) {
   if (predictedClass === 'Normal') return 'Low';
   if (confidence >= 0.62) return 'Critical';

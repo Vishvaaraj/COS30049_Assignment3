@@ -7,14 +7,15 @@ import SeverityBadge from '../components/SeverityBadge.jsx';
 import { LoadingBlock, ErrorBanner } from '../components/Feedback.jsx';
 import { plotlyDarkLayout, plotlyConfig, SEVERITY_COLOR, ACCENT_BEACON, ACCENT_SONAR } from '../charts/plotlyTheme';
 import { loadActivityLog, appendActivityLog } from '../utils/activityLog';
-import { normalizeSeverity, resolveRowSeverity } from '../utils/severity';
+import { normalizeSeverity, resolveRowSeverity, compareSeverity, SEVERITY_DISPLAY_ORDER } from '../utils/severity';
 import './Dashboard.css';
 
-const SEVERITY_LEVELS = ['All', 'Critical', 'High', 'Medium', 'Low'];
+const SEVERITY_LEVELS = ['All', ...SEVERITY_DISPLAY_ORDER];
 const ATTACK_CLASS_OPTIONS = ['All', 'Normal', 'DoS', 'Probe', 'R2L', 'U2R', 'Anomaly'];
 const MODEL_IDS = ['random_forest', 'xgboost', 'kmeans'];
 const MODEL_LABELS = { random_forest: 'Random Forest', xgboost: 'XGBoost', kmeans: 'K-Means' };
-const SEVERITY_ORDER = ['Critical', 'High', 'Medium', 'Low'];
+const SEVERITY_ORDER = SEVERITY_DISPLAY_ORDER;
+const DISPLAY_ROW_LIMIT = 300;
 const SEVERITY_CHART_COLOR = {
   Critical: '#F2495E',
   High: '#F2914A',
@@ -169,15 +170,9 @@ export default function Dashboard() {
         );
       } else {
         const alertResult = await fetchAlerts();
-        const al = applyAlertResponse(alertResult);
-        const totalAlerts = alertResult.total ?? al.length;
+        applyAlertResponse(alertResult);
+        const totalAlerts = alertResult.total ?? alertResult.alerts?.length ?? 0;
         setSparkHistory((prev) => ({ ...prev, alerts: pushHistory('alerts', totalAlerts).alerts }));
-        const criticalCount = al.filter((a) => a.severity === 'Critical').length;
-        const highCount = al.filter((a) => a.severity === 'High').length;
-        const totalLabel = totalAlerts > al.length ? `${al.length} of ${totalAlerts}` : String(totalAlerts);
-        addLogEntry(
-          `Alerts refreshed · ${totalLabel} alerts · ${criticalCount} critical · ${highCount} high severity`
-        );
       }
     } catch (e) {
       if (isInitial) {
@@ -193,8 +188,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     load(true);
-    const pollInterval = setInterval(() => load(false), 15000);
-    return () => clearInterval(pollInterval);
+    const pollInterval = setInterval(() => load(false), 30000);
+    const onPredictionComplete = () => load(false);
+    window.addEventListener('netguard:prediction-complete', onPredictionComplete);
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('netguard:prediction-complete', onPredictionComplete);
+    };
   }, []);
 
   const predictionActivityRows = useMemo(() => flattenPredictionRows(runs), [runs]);
@@ -227,6 +227,10 @@ export default function Dashboard() {
     return filtered.sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
+      if (sortKey === 'severity') {
+        const diff = compareSeverity(av, bv);
+        return sortDir === 'asc' ? diff : -diff;
+      }
       if (av == null && bv == null) return 0;
       if (av == null) return 1;
       if (bv == null) return -1;
@@ -235,6 +239,12 @@ export default function Dashboard() {
       return 0;
     });
   }, [activityRows, sortKey, sortDir, severityFilter, attackClassFilter]);
+
+  const displayedActivityRows = useMemo(
+    () => filteredActivityRows.slice(0, DISPLAY_ROW_LIMIT),
+    [filteredActivityRows]
+  );
+  const rowsTruncated = filteredActivityRows.length > DISPLAY_ROW_LIMIT;
 
   const chartSeverityMix = useMemo(() => {
     const counts = Object.fromEntries(SEVERITY_ORDER.map((s) => [s, 0]));
@@ -258,14 +268,21 @@ export default function Dashboard() {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     else {
       setSortKey(key);
-      setSortDir('desc');
+      setSortDir(key === 'severity' ? 'asc' : 'desc');
     }
   }
 
   const totalFlows = datasetStats ? Object.values(datasetStats.class_distribution).reduce((a, b) => a + b, 0) : 0;
   const threatCount = datasetStats ? totalFlows - (datasetStats.class_distribution.Normal || 0) : 0;
   const threatPct = totalFlows ? ((threatCount / totalFlows) * 100).toFixed(1) : '0.0';
-  const criticalAlerts = alerts ? alerts.filter((a) => a.severity === 'Critical').length : 0;
+  const criticalAlerts = useMemo(() => {
+    if (usingPredictionRows) {
+      return predictionActivityRows.filter((r) => normalizeSeverity(r.severity) === 'Critical').length;
+    }
+    return alerts ? alerts.filter((a) => normalizeSeverity(a.severity) === 'Critical').length : 0;
+  }, [usingPredictionRows, predictionActivityRows, alerts]);
+
+  const activeAlertsTotal = usingPredictionRows ? predictionRowTotal : alertTotal;
   const avgLatency =
     inferenceLatencyHistory.length > 0
       ? (inferenceLatencyHistory.reduce((a, b) => a + b, 0) / inferenceLatencyHistory.length).toFixed(1)
@@ -363,8 +380,8 @@ export default function Dashboard() {
               sparklineColor={ACCENT_BEACON}
             />
             <StatCard
-              label="Active alerts"
-              value={loading ? '—' : alertTotal}
+              label={usingPredictionRows ? 'Stored classifications' : 'Active alerts'}
+              value={loading ? '—' : activeAlertsTotal}
               sub={loading ? undefined : `${criticalAlerts} critical`}
               accent="var(--critical)"
               sparklineData={sparkHistory.alerts}
@@ -482,7 +499,7 @@ export default function Dashboard() {
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredActivityRows.map((row) => (
+                          {displayedActivityRows.map((row) => (
                             <tr key={row.id}>
                               <td><SeverityBadge level={row.severity} /></td>
                               <td>{row.class}</td>
@@ -502,6 +519,13 @@ export default function Dashboard() {
                                 {attackClassFilter !== 'All' && usingPredictionRows && attackClassFilter !== 'Anomaly' && attackClassFilter !== 'Normal' && (
                                   <span className="alerts-empty-hint"> Try Random Forest or XGBoost — K-Means only outputs Normal or Anomaly.</span>
                                 )}
+                              </td>
+                            </tr>
+                          )}
+                          {rowsTruncated && filteredActivityRows.length > 0 && (
+                            <tr>
+                              <td colSpan={5} className="alerts-empty-cell alerts-truncation-hint">
+                                Showing first {DISPLAY_ROW_LIMIT} of {filteredActivityRows.length.toLocaleString()} matching rows. Narrow filters to see more.
                               </td>
                             </tr>
                           )}

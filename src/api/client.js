@@ -42,6 +42,23 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+let longRequestCount = 0;
+
+function setServerBusy(busy) {
+  window.dispatchEvent(new CustomEvent('netguard:server-busy', { detail: { busy } }));
+}
+
+async function withLongRequest(fn) {
+  longRequestCount += 1;
+  if (longRequestCount === 1) setServerBusy(true);
+  try {
+    return await fn();
+  } finally {
+    longRequestCount = Math.max(0, longRequestCount - 1);
+    if (longRequestCount === 0) setServerBusy(false);
+  }
+}
+
 export async function fetchDatasetStats() {
   if (USE_MOCK) {
     await delay(300);
@@ -86,40 +103,44 @@ export async function fetchAlerts(limit = 500) {
 }
 
 export async function submitPrediction(file, model = 'random_forest') {
-  if (USE_MOCK) {
-    await delay(900);
-    const rowCount = Math.max(1, Math.min(50, file?.estimatedRows || 12));
-    return generateMockPredictionResults(rowCount, model);
-  }
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('model', model);
-    const { data } = await http.post('/predict', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: Math.max(120000, (file?.estimatedRows || 25) * 500),
-    });
-    return data;
-  } catch (e) {
-    throw toApiError(e);
-  }
+  return withLongRequest(async () => {
+    if (USE_MOCK) {
+      await delay(900);
+      const rowCount = Math.max(1, Math.min(500, file?.estimatedRows || 12));
+      return generateMockPredictionResults(rowCount, model);
+    }
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('model', model);
+      const { data } = await http.post('/predict', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: Math.max(120000, (file?.estimatedRows || 25) * 500),
+      });
+      return data;
+    } catch (e) {
+      throw toApiError(e);
+    }
+  });
 }
 
 export async function fetchSyntheticData({ count = 25, mix = 'realistic', jitter = 0.08 } = {}) {
-  if (USE_MOCK) {
-    await delay(Math.min(2000, 200 + count * 2));
-    return generateMockSyntheticCsv(count, mix, jitter);
-  }
-  try {
-    const { data } = await http.get('/synthetic-data', {
-      params: { count, mix, jitter },
-      responseType: 'text',
-      timeout: Math.max(60000, count * 200),
-    });
-    return data;
-  } catch (e) {
-    throw toApiError(e);
-  }
+  return withLongRequest(async () => {
+    if (USE_MOCK) {
+      await delay(Math.min(2000, 200 + count * 2));
+      return generateMockSyntheticCsv(count, mix, jitter);
+    }
+    try {
+      const { data } = await http.get('/synthetic-data', {
+        params: { count, mix, jitter },
+        responseType: 'text',
+        timeout: Math.max(60000, count * 200),
+      });
+      return data;
+    } catch (e) {
+      throw toApiError(e);
+    }
+  });
 }
 
 export async function fetchRandomSampleRow({ mix = 'realistic', jitter = 0.08 } = {}) {

@@ -5,6 +5,7 @@ import { submitPrediction, fetchModelStats, fetchRandomSampleRow } from '../api/
 import { usePrediction } from '../state/PredictionContext.jsx';
 import { FEATURE_SPECS, emptyFeatureState, validateFeatures, featuresToCsvFile } from '../data/featureSpecs';
 import { FEATURE_GLOSSARY } from '../data/featureGlossary';
+import { normalizeResultRows } from '../utils/predictionRun';
 import { appendActivityLog } from '../utils/activityLog';
 import { ErrorBanner } from '../components/Feedback.jsx';
 import SyntheticDataPanel, { DEFAULT_SYNTH_SETTINGS } from '../components/SyntheticDataPanel.jsx';
@@ -103,14 +104,15 @@ export default function AnalyseTraffic() {
           ? await file.text()
           : [FEATURE_SPECS.map((f) => f.key).join(','), FEATURE_SPECS.map((f) => featureValues[f.key]).join(',')].join('\n');
       const data = await submitPrediction(payloadFile, model);
+      const result = normalizeResultRows(data, model) ?? data;
       const name = mode === 'upload' ? file.name : 'Manual entry';
-      recordRun({ fileName: name, inputCsv, result: data });
-      const topClass = Object.entries(data.summary.class_counts).sort((a, b) => b[1] - a[1])[0];
-      const threatRows = data.rows.filter((r) => r.predicted_class !== 'Normal').length;
-      const avgConf = data.rows.reduce((s, r) => s + r.confidence, 0) / data.rows.length;
-      const warningCount = data.rows.filter((r) => r.warnings?.length).length;
+      recordRun({ fileName: name, inputCsv, result });
+      const topClass = Object.entries(result.summary.class_counts).sort((a, b) => b[1] - a[1])[0];
+      const threatRows = result.rows.filter((r) => r.predicted_class !== 'Normal').length;
+      const avgConf = result.rows.reduce((s, r) => s + r.confidence, 0) / result.rows.length;
+      const warningCount = result.rows.filter((r) => r.warnings?.length).length;
       appendActivityLog(
-        `Classification complete · source: ${name} · ${data.summary.total_rows} rows · model: ${data.summary.model_used.replace('_', ' ')} · top class: ${topClass[0]} (${topClass[1]} rows) · ${threatRows} non-normal · avg confidence ${(avgConf * 100).toFixed(1)}%${warningCount ? ` · ${warningCount} rows with data warnings` : ''}`
+        `Classification complete · source: ${name} · ${result.summary.total_rows} rows · model: ${result.summary.model_used.replace('_', ' ')} · top class: ${topClass[0]} (${topClass[1]} rows) · ${threatRows} non-normal · avg confidence ${(avgConf * 100).toFixed(1)}%${warningCount ? ` · ${warningCount} rows with data warnings` : ''}`
       );
       navigate('/result');
     } catch (e) {

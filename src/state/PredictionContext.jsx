@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import { fetchPredictionRuns, savePredictionRun, clearPredictionRunsApi } from '../api/client';
-import { buildLocalRun, buildRunPayload, normalizeRun } from '../utils/predictionRun';
+import { buildLocalRun, buildRunPayload, normalizeRun, normalizeResultRows } from '../utils/predictionRun';
 
 const LATENCY_KEY = 'netguard_inference_latency';
 const MOCK_RUNS_KEY = 'netguard_mock_prediction_runs';
@@ -84,10 +84,11 @@ export function PredictionProvider({ children }) {
 
   const recordRun = useCallback(
     async ({ fileName: name, inputCsv, result: data }) => {
+      const model = data.summary?.model_used;
+      const result = normalizeResultRows(data, model) ?? data;
       const avgMs =
-        data.rows.length > 0 ? data.rows.reduce((s, r) => s + r.inference_time_ms, 0) / data.rows.length : 0;
-
-      const optimistic = buildLocalRun({ fileName: name, inputCsv, result: data });
+        result.rows.length > 0 ? result.rows.reduce((s, r) => s + r.inference_time_ms, 0) / result.rows.length : 0;
+      const optimistic = buildLocalRun({ fileName: name, inputCsv, result });
       setRuns((prev) => [optimistic, ...prev.filter((r) => r.id !== optimistic.id)].slice(0, 30));
       setSelectedRunId(optimistic.id);
 
@@ -98,7 +99,7 @@ export function PredictionProvider({ children }) {
       });
 
       try {
-        const saved = await savePredictionRun(buildRunPayload({ fileName: name, inputCsv, result: data }));
+        const saved = await savePredictionRun(buildRunPayload({ fileName: name, inputCsv, result }));
         const normalized = normalizeRun(saved);
         setRuns((prev) => [normalized, ...prev.filter((r) => r.id !== optimistic.id)].slice(0, 30));
         setSelectedRunId(normalized.id);

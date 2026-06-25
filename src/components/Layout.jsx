@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { checkServerHealth } from '../api/client';
 import './Layout.css';
@@ -24,41 +24,68 @@ export default function Layout({ children }) {
   const [navOpen, setNavOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [serverLive, setServerLive] = useState(false);
+  const [serverBusy, setServerBusy] = useState(false);
+  const busyRef = useRef(false);
   const location = useLocation();
   const currentPage = PAGE_LABELS[location.pathname] ?? 'Dashboard';
+
+  useEffect(() => {
+    function onBusy(event) {
+      const busy = Boolean(event.detail?.busy);
+      busyRef.current = busy;
+      setServerBusy(busy);
+      if (busy) setServerLive(true);
+    }
+
+    window.addEventListener('netguard:server-busy', onBusy);
+    return () => window.removeEventListener('netguard:server-busy', onBusy);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     async function ping() {
+      if (busyRef.current) return;
       const ok = await checkServerHealth();
-      if (!cancelled) setServerLive(ok);
+      if (!cancelled && !busyRef.current) setServerLive(ok);
     }
 
     ping();
     const interval = setInterval(ping, 20000);
+    const onBusyEnded = (event) => {
+      if (!event.detail?.busy) ping();
+    };
+    window.addEventListener('netguard:server-busy', onBusyEnded);
+
     return () => {
       cancelled = true;
       clearInterval(interval);
+      window.removeEventListener('netguard:server-busy', onBusyEnded);
     };
   }, []);
+
+  const statusLabel = serverBusy ? 'Running' : serverLive ? 'Live' : 'Offline';
+  const statusClass = serverBusy
+    ? 'status-pulse-busy'
+    : serverLive
+      ? 'status-pulse-live'
+      : 'status-pulse-offline';
 
   return (
     <div className={`shell ${collapsed ? 'shell-collapsed' : ''}`}>
       <aside className={`sidebar ${navOpen ? 'sidebar-open' : ''} ${collapsed ? 'sidebar-collapsed' : ''}`}>
-        <button
-          className="sidebar-collapse-btn"
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          onClick={() => setCollapsed((v) => !v)}
-        >
-          <CollapseIcon collapsed={collapsed} />
-        </button>
+        <div className="sidebar-top">
+          <button
+            className="sidebar-collapse-btn"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            onClick={() => setCollapsed((v) => !v)}
+          >
+            <CollapseIcon collapsed={collapsed} />
+          </button>
 
-        <div className="brand">
-          <span className="brand-wordmark">NTA</span>
-          <div className="brand-text">
+          <div className="brand">
             <div className="brand-name">NetGuard</div>
-            <div className="brand-sub eyebrow">Traffic Analysis</div>
+            <div className="brand-credit">Made by Group 14</div>
           </div>
         </div>
 
@@ -77,11 +104,6 @@ export default function Layout({ children }) {
             </NavLink>
           ))}
         </nav>
-
-        <div className="sidebar-footer">
-          <div className="eyebrow sidebar-footer-text">Group 14 · COS30049</div>
-          <div className="sidebar-footer-models sidebar-footer-text">RF · XGBoost · K-Means</div>
-        </div>
       </aside>
 
       <div className="main-col">
@@ -94,20 +116,22 @@ export default function Layout({ children }) {
 
           <div className="topbar-right">
             <div
-              className={`status-pulse ${serverLive ? 'status-pulse-live' : 'status-pulse-offline'}`}
+              className={`status-pulse ${statusClass}`}
               role="status"
               aria-label={
-                serverLive
-                  ? 'Backend connected'
-                  : 'Backend offline — please start the Hugging Face Space server'
+                serverBusy
+                  ? 'Backend is processing a request'
+                  : serverLive
+                    ? 'Backend connected'
+                    : 'Backend offline — please start the Hugging Face Space server'
               }
             >
               <span className="pulse-dot">
-                {serverLive && <span className="pulse-ring" />}
+                {(serverLive || serverBusy) && <span className="pulse-ring" />}
               </span>
-              <span className="status-text">{serverLive ? 'Live' : 'Offline'}</span>
+              <span className="status-text">{statusLabel}</span>
             </div>
-            {!serverLive && (
+            {!serverLive && !serverBusy && (
               <p className="status-offline-hint">
                 Please start the server on{' '}
                 <a href={HF_SPACE_URL} target="_blank" rel="noopener noreferrer">

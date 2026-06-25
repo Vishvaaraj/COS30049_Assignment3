@@ -158,19 +158,6 @@
   color: var(--text-muted);
 }
 
-.mix-legend-group {
-  min-width: 0;
-}
-
-.mix-legend-heading {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-tertiary);
-  margin-bottom: 6px;
-}
-
 .severity-mix-legend {
   list-style: none;
   margin: 0;
